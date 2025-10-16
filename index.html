@@ -46,6 +46,14 @@
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
+    <!-- Load Babel Standalone to transpile TSX files in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 
+      Use type="text/babel" to tell Babel to process this script.
+      data-presets tells Babel how to transpile (for React and TypeScript).
+      data-type="module" ensures it's treated as an ES module, allowing it to import other files.
+      Babel will automatically fetch and transpile 'index.tsx' and all its dependencies.
+    -->
+    <script type="text/babel" data-presets="react,typescript" src="index.tsx" data-type="module"></script>
   </body>
 </html>

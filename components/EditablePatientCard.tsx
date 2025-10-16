@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { Patient } from '../types';
-import { updatePatientDetails } from '../services/firebase';
+import type { Patient } from '../types.ts';
+import { updatePatientDetails } from '../services/firebase.ts';
 
 interface EditablePatientCardProps {
   patient: Patient;

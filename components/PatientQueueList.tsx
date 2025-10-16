@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import type { Patient } from '../types';
-import { PatientStatus } from '../types';
-import { updatePatientStatus, deletePatient } from '../services/firebase';
-import EditablePatientCard from './EditablePatientCard';
+import type { Patient } from '../types.ts';
+import { PatientStatus } from '../types.ts';
+import { updatePatientStatus, deletePatient } from '../services/firebase.ts';
+import EditablePatientCard from './EditablePatientCard.tsx';
 
 interface PatientQueueListProps {
   patients: Patient[];

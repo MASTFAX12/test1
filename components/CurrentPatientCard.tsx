@@ -1,7 +1,8 @@
+
 import React from 'react';
-import type { Patient } from '../types';
-import { PatientStatus } from '../types';
-import { UserIcon } from './Icons';
+import type { Patient } from '../types.ts';
+import { PatientStatus } from '../types.ts';
+import { UserIcon } from './Icons.tsx';
 
 interface CurrentPatientCardProps {
   patient: Patient | undefined; // The patient with 'inprogress' status

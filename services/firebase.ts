@@ -8,7 +8,7 @@ import {
   updateDoc, 
   deleteDoc 
 } from 'firebase/firestore';
-import type { PatientStatus } from '../types';
+import type { PatientStatus } from '../types.ts';
 
 // IMPORTANT: Replace with your own Firebase project configuration
 const firebaseConfig = {

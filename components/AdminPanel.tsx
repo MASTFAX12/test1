@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { addPatient } from '../services/firebase';
+import { addPatient } from '../services/firebase.ts';
 
 const AdminPanel: React.FC = () => {
   const [name, setName] = useState('');

@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { PatientStatus } from '../types';
-import type { Patient } from '../types';
+import { PatientStatus } from '../types.ts';
+import type { Patient } from '../types.ts';
 
 interface StatsPanelProps {
   patients: Patient[];

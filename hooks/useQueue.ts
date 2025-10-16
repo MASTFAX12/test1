@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebase';
-import type { Patient } from '../types';
+import { db } from '../services/firebase.ts';
+import type { Patient } from '../types.ts';
 
 export const useQueue = () => {
   const [patients, setPatients] = useState<Patient[]>([]);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ADMIN_PASSWORD } from '../constants';
+import { ADMIN_PASSWORD } from '../constants.ts';
 
 interface LoginModalProps {
   onClose: () => void;

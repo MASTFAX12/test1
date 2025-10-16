@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { useQueue } from './hooks/useQueue';
-import type { Patient } from './types';
-import { PatientStatus } from './types';
-import { playNotificationSound } from './utils/audio';
-import { updatePatientStatus } from './services/firebase';
-import CurrentPatientCard from './components/CurrentPatientCard';
-import PatientQueueList from './components/PatientQueueList';
-import AdminPanel from './components/AdminPanel';
-import LoginModal from './components/LoginModal';
-import { GearIcon } from './components/Icons';
-import TimeDisplay from './components/TimeDisplay';
-import StatsPanel from './components/StatsPanel';
+import { useQueue } from './hooks/useQueue.ts';
+import type { Patient } from './types.ts';
+import { PatientStatus } from './types.ts';
+import { playNotificationSound } from './utils/audio.ts';
+import { updatePatientStatus } from './services/firebase.ts';
+import CurrentPatientCard from './components/CurrentPatientCard.tsx';
+import PatientQueueList from './components/PatientQueueList.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
+import LoginModal from './components/LoginModal.tsx';
+import { GearIcon } from './components/Icons.tsx';
+import TimeDisplay from './components/TimeDisplay.tsx';
+import StatsPanel from './components/StatsPanel.tsx';
 
 const App: React.FC = () => {
   const { patients, loading, error } = useQueue();

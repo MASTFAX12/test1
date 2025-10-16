@@ -1,0 +1,5 @@
+{
+  "name": "Clinic Queue Manager",
+  "description": "A real-time patient queue management system for clinics. It provides a public display for patients in the waiting room and a password-protected admin interface for receptionists to manage the queue.",
+  "requestFramePermissions": []
+}

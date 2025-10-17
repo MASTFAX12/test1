@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { PatientVisit } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
@@ -26,10 +27,9 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
       return;
     }
 
-    // Improved validation for numeric fields
     const ageNum = parseInt(age, 10);
-    if (age && (isNaN(ageNum) || ageNum < 0)) {
-        toast.error('يرجى إدخال عمر صحيح (رقم موجب).');
+    if (age && (isNaN(ageNum) || ageNum < 0 || ageNum > 120)) {
+        toast.error('يرجى إدخال عمر صحيح (بين 0 و 120).');
         return;
     }
     const amountNum = parseFloat(amountPaid);
@@ -46,7 +46,7 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
     setIsSaving(true);
     try {
       await updatePatientDetails(patient.id, { 
-          patientProfileId: patient.patientProfileId, // Pass profile ID for potential updates
+          patientProfileId: patient.patientProfileId,
           name, 
           phone, 
           reason,
@@ -74,16 +74,16 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
          <div className="grid grid-cols-2 gap-3">
             <div>
                  <label className="text-xs font-bold text-gray-600">العمر</label>
-                 <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                 <input type="text" inputMode="numeric" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
             <div>
                  <label className="text-xs font-bold text-gray-600">المبلغ</label>
-                 <input type="number" step="any" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                 <input type="text" inputMode="decimal" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
             </div>
         </div>
         <div>
           <label className="text-xs font-bold text-gray-600">الهاتف</label>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+          <input type="tel" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
         </div>
         <div>
           <label className="text-xs font-bold text-gray-600">السبب</label>

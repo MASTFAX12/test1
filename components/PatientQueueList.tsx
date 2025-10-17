@@ -1,4 +1,4 @@
-import React, { useState, useMemo, FC, DragEvent } from 'react';
+import React, { useState, useMemo, FC, DragEvent, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { PatientVisit, Service } from '../types.ts';
 import { PatientStatus, Role } from '../types.ts';
@@ -20,6 +20,7 @@ import PaymentInputCard from './PaymentInputCard.tsx';
 import ServiceSelectionModal from './ServiceSelectionModal.tsx';
 import { toast } from 'react-hot-toast';
 import PatientHistoryModal from './PatientHistoryModal.tsx';
+import { usePrevious } from '../hooks/usePrevious.ts';
 
 interface PatientQueueListProps {
   patients: PatientVisit[];
@@ -38,6 +39,7 @@ interface PatientCardProps {
   index?: number;
   role: Role;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
+  onSetInProgress: (id: string) => void;
   onCancel: (id: string) => void;
   onCall: (patient: PatientVisit) => void;
   onEdit: () => void;
@@ -48,11 +50,13 @@ interface PatientCardProps {
   onReturnToWaiting: (patientId: string) => void;
   onMarkAsDone: (patient: PatientVisit) => void;
   isDraggable?: boolean;
-  onDragStart?: (e: DragEvent<HTMLDivElement>, patientId: string) => void;
-  onDragOver?: (e: DragEvent<HTMLDivElement>) => void;
-  onDrop?: (e: DragEvent<HTMLDivElement>, patientId: string) => void;
-  onDragLeave?: (e: DragEvent<HTMLDivElement>) => void;
+  onDragStart?: (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => void;
+  onDragEnd?: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOverReorder?: (e: DragEvent<HTMLDivElement>) => void;
+  onDropReorder?: (e: DragEvent<HTMLDivElement>, patientId: string) => void;
+  onDragLeaveReorder?: (e: DragEvent<HTMLDivElement>) => void;
   isNextToPay?: boolean;
+  isNewlyAddedToPayment?: boolean;
 }
 
 const PatientCard: FC<PatientCardProps> = ({
@@ -60,6 +64,7 @@ const PatientCard: FC<PatientCardProps> = ({
   index,
   role,
   onUpdateStatus,
+  onSetInProgress,
   onCancel,
   onCall,
   onEdit,
@@ -71,10 +76,12 @@ const PatientCard: FC<PatientCardProps> = ({
   onMarkAsDone,
   isDraggable,
   onDragStart,
-  onDragOver,
-  onDrop,
-  onDragLeave,
-  isNextToPay
+  onDragEnd,
+  onDragOverReorder,
+  onDropReorder,
+  onDragLeaveReorder,
+  isNextToPay,
+  isNewlyAddedToPayment
 }) => {
   const statusConfig = {
     [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800' },
@@ -99,10 +106,11 @@ const PatientCard: FC<PatientCardProps> = ({
     <div 
       className={cardClasses}
       draggable={isDraggable}
-      onDragStart={(e) => onDragStart?.(e, patient.id)}
-      onDragOver={onDragOver}
-      onDrop={(e) => onDrop?.(e, patient.id)}
-      onDragLeave={onDragLeave}
+      onDragStart={(e) => onDragStart?.(e, patient)}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOverReorder}
+      onDrop={(e) => onDropReorder?.(e, patient.id)}
+      onDragLeave={onDragLeaveReorder}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
@@ -115,6 +123,7 @@ const PatientCard: FC<PatientCardProps> = ({
         <div className="flex flex-col items-end gap-1">
             <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusText}</span>
             {isNextToPay && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900">التالي للدفع</span>}
+            {isNewlyAddedToPayment && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 animate-pulse">جديد للدفع</span>}
         </div>
       </div>
       <div className="mt-4 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
@@ -141,7 +150,7 @@ const PatientCard: FC<PatientCardProps> = ({
               {isWaiting && (
                 <>
                   <button title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className="action-btn bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400"><BellIcon className="w-4 h-4" /></button>
-                  <button title="إدخال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+                  <button title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
                 </>
               )}
               {patient.status === PatientStatus.PendingPayment && (
@@ -150,15 +159,15 @@ const PatientCard: FC<PatientCardProps> = ({
               {patient.status === PatientStatus.InProgress && (
                   <button title="إرجاع للانتظار" onClick={() => onReturnToWaiting(patient.id)} className="action-btn bg-gray-500 hover:bg-gray-600"><ArrowUturnLeftIcon className="w-4 h-4"/></button>
               )}
-               <button title="تعديل" onClick={onEdit} className="action-btn bg-gray-500 hover:bg-gray-600"><PencilIcon className="w-4 h-4" /></button>
-               {!isWaiting && <button title="إلغاء الموعد" onClick={() => onCancel(patient.id)} className="action-btn bg-red-500 hover:bg-red-600"><TrashIcon className="w-4 h-4" /></button>}
+               <button title="تعديل" onClick={onEdit} disabled={isBeingCalled} className="action-btn bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed"><PencilIcon className="w-4 h-4" /></button>
+               {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && <button title="إلغاء الموعد" onClick={() => onCancel(patient.id)} className="action-btn bg-red-500 hover:bg-red-600"><TrashIcon className="w-4 h-4" /></button>}
             </>
           )}
           {/* Actions for Doctor */}
           {role === Role.Doctor && (
             <>
               {isWaiting && (
-                <button title="إدخال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+                <button title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
               )}
               {patient.status === PatientStatus.InProgress && (
                 <>
@@ -177,13 +186,28 @@ const PatientCard: FC<PatientCardProps> = ({
   );
 };
 
-const QueueSection: FC<{ title: string; children: React.ReactNode; count: number; }> = ({ title, children, count }) => (
-    <div className="bg-gray-50/50 backdrop-blur-sm p-4 rounded-xl shadow-inner border border-gray-200">
-      <h2 className="text-lg font-bold text-gray-700 mb-3">{title} ({count})</h2>
-      <div className="space-y-3">{children}</div>
-      {count === 0 && (
-          <p className="text-center text-gray-500 py-4">لا يوجد مراجعون في هذه القائمة.</p>
-      )}
+const QueueSection: FC<{ 
+  title: string; 
+  children: React.ReactNode; 
+  count: number;
+  isDragOver: boolean;
+  onDrop: (e: DragEvent<HTMLDivElement>) => void;
+  onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
+}> = ({ title, children, count, isDragOver, ...dragProps }) => (
+    <div 
+      {...dragProps}
+      className={`bg-slate-200/50 p-3 rounded-xl shadow-inner border border-slate-300/50 flex flex-col transition-colors duration-300 ${isDragOver ? 'bg-blue-100 border-blue-300' : ''}`}
+    >
+      <h2 className="text-lg font-bold text-slate-700 mb-3 flex-shrink-0 px-1">{title} ({count})</h2>
+      <div className="space-y-3 overflow-y-auto pr-2 -mr-2 max-h-[calc(100vh-280px)]">
+        {children}
+        {count === 0 && (
+            <div className={`flex items-center justify-center min-h-[100px] rounded-lg ${isDragOver ? 'border-2 border-dashed border-blue-400' : ''}`}>
+              <p className="text-center text-slate-500 py-4">لا يوجد مراجعون في هذه القائمة.</p>
+            </div>
+        )}
+      </div>
     </div>
 );
 
@@ -204,14 +228,38 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [serviceSelectionPatient, setServiceSelectionPatient] = useState<PatientVisit | null>(null);
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [draggedPatientId, setDraggedPatientId] = useState<string | null>(null);
+  const [draggedPatient, setDraggedPatient] = useState<PatientVisit | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<PatientStatus | null>(null);
+  const [newlyAddedToPayment, setNewlyAddedToPayment] = useState<Set<string>>(new Set());
+  const prevPatients = usePrevious(patients);
+
+  useEffect(() => {
+    if (!prevPatients || role !== Role.Secretary) return;
+    const newPendingPatientIds = new Set<string>();
+    patients.forEach(currentPatient => {
+      if (currentPatient.status === PatientStatus.PendingPayment) {
+        const prevVersion = prevPatients.find(p => p.id === currentPatient.id);
+        if (prevVersion && prevVersion.status !== PatientStatus.PendingPayment) {
+          newPendingPatientIds.add(currentPatient.id);
+        }
+      }
+    });
+    if (newPendingPatientIds.size > 0) {
+      setNewlyAddedToPayment(prevSet => {
+          const newSet = new Set(prevSet);
+          newPendingPatientIds.forEach(id => newSet.add(id));
+          return newSet;
+      });
+      toast('تم إرسال مراجع جديد للدفع.', { icon: '💰', position: 'bottom-left' });
+      const timer = setTimeout(() => { setNewlyAddedToPayment(new Set()); }, 10000); 
+      return () => clearTimeout(timer);
+    }
+  }, [patients, prevPatients, role]);
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return patients;
     const lowercasedFilter = searchTerm.toLowerCase();
-    return patients.filter(patient => 
-      patient.name.toLowerCase().includes(lowercasedFilter)
-    );
+    return patients.filter(patient => patient.name.toLowerCase().includes(lowercasedFilter));
   }, [patients, searchTerm]);
 
 
@@ -223,14 +271,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       else acc.completedOrCancelled.push(p);
       return acc;
     }, { waiting: [], inProgress: [], pendingPayment: [], completedOrCancelled: [] } as Record<string, PatientVisit[]>);
-
-    // Sort pendingPayment list to show the most recently sent patient at the top
-    lists.pendingPayment.sort((a, b) => {
-        const timeA = a.sentToPaymentAt?.toMillis() || 0;
-        const timeB = b.sentToPaymentAt?.toMillis() || 0;
-        return timeB - timeA; // Descending order
-    });
-
+    lists.pendingPayment.sort((a, b) => (b.sentToPaymentAt?.toMillis() || 0) - (a.sentToPaymentAt?.toMillis() || 0));
     return lists;
   }, [filteredPatients]);
   
@@ -240,8 +281,14 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     toast.success('تم تسجيل الدفعة بنجاح.');
   }
 
-  const handleReturnToWaiting = (patientId: string) => {
-    onUpdateStatus(patientId, PatientStatus.Waiting);
+  const handleReturnToWaiting = (patientId: string) => onUpdateStatus(patientId, PatientStatus.Waiting);
+
+  const handleSetInProgress = (patientId: string) => {
+    if (inProgress.length > 0 && !inProgress.some(p => p.id === patientId)) {
+      toast.error('يوجد مراجع قيد الفحص حالياً. لا يمكن إدخال مراجع آخر.');
+      return;
+    }
+    onUpdateStatus(patientId, PatientStatus.InProgress);
   };
 
   const handleMarkAsDone = (patient: PatientVisit) => {
@@ -250,76 +297,80 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     }
   };
 
-  // --- Drag and Drop Handlers ---
-  const handleDragStart = (e: DragEvent<HTMLDivElement>, patientId: string) => {
-    setDraggedPatientId(patientId);
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => {
+    setDraggedPatient(patient);
     e.dataTransfer.effectAllowed = 'move';
     e.currentTarget.style.opacity = '0.5';
   };
-  
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.style.borderTop = "2px solid #3b82f6";
+  const handleDragEnd = (e: DragEvent<HTMLDivElement>) => {
+    e.currentTarget.style.opacity = '1';
+    setDraggedPatient(null);
+    setDragOverColumn(null);
   };
-  
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.currentTarget.style.borderTop = "";
-  };
-  
-  const handleDrop = (e: DragEvent<HTMLDivElement>, targetPatientId: string) => {
+  const handleDragOverColumn = (e: DragEvent<HTMLDivElement>, status: PatientStatus) => {
     e.preventDefault();
-    e.currentTarget.style.borderTop = "";
-    if (!draggedPatientId || draggedPatientId === targetPatientId) {
-      setDraggedPatientId(null);
-      return;
+    if (draggedPatient && draggedPatient.status !== status) setDragOverColumn(status);
+  };
+  const handleDragLeaveColumn = () => setDragOverColumn(null);
+
+  const handleColumnDrop = (e: DragEvent<HTMLDivElement>, targetStatus: PatientStatus) => {
+    e.preventDefault();
+    handleDragLeaveColumn();
+    if (!draggedPatient || draggedPatient.status === targetStatus) return;
+    if (role === Role.Secretary && targetStatus === PatientStatus.PendingPayment) {
+        toast.error('لا يمكن نقل المراجع إلى "بانتظار الدفع" يدوياً.');
+        return;
     }
-    
+    if ([PatientStatus.Done, PatientStatus.Cancelled].includes(draggedPatient.status)) {
+        toast.error('لا يمكن إعادة مراجع من الأرشيف.');
+        return;
+    }
+    if (targetStatus === PatientStatus.InProgress) {
+        handleSetInProgress(draggedPatient.id);
+    } else if (targetStatus === PatientStatus.Waiting) {
+        onUpdateStatus(draggedPatient.id, PatientStatus.Waiting);
+    } else if (targetStatus === PatientStatus.Cancelled) {
+        if (window.confirm(`هل أنت متأكد من إلغاء مراجعة "${draggedPatient.name}"؟`)) {
+            onCancel(draggedPatient.id);
+        }
+    }
+  };
+
+  const handleReorderDrop = (e: DragEvent<HTMLDivElement>, targetPatientId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.style.borderTop = "";
+    if (!draggedPatient || draggedPatient.id === targetPatientId || draggedPatient.status !== PatientStatus.Waiting) return;
     const originalWaitingList = patients.filter(p => p.status === PatientStatus.Waiting);
-    const draggedIndex = originalWaitingList.findIndex(p => p.id === draggedPatientId);
+    const draggedIndex = originalWaitingList.findIndex(p => p.id === draggedPatient.id);
     const targetIndex = originalWaitingList.findIndex(p => p.id === targetPatientId);
-    
     if (draggedIndex === -1 || targetIndex === -1) return;
-    
     let newTimeMillis: number;
     const targetPatientTime = originalWaitingList[targetIndex].createdAt.toMillis();
-    
-    if (draggedIndex < targetIndex) { // Dragging down
+    if (draggedIndex < targetIndex) {
       const nextPatientTime = targetIndex + 1 < originalWaitingList.length ? originalWaitingList[targetIndex + 1].createdAt.toMillis() : targetPatientTime + 2000;
       newTimeMillis = (targetPatientTime + nextPatientTime) / 2;
-    } else { // Dragging up
+    } else {
       const prevPatientTime = targetIndex > 0 ? originalWaitingList[targetIndex - 1].createdAt.toMillis() : targetPatientTime - 2000;
       newTimeMillis = (targetPatientTime + prevPatientTime) / 2;
     }
-
-    onReorder(draggedPatientId, Timestamp.fromMillis(newTimeMillis));
-    setDraggedPatientId(null);
+    onReorder(draggedPatient.id, Timestamp.fromMillis(newTimeMillis));
   };
 
-  const handleDragEnd = (e: DragEvent<HTMLDivElement>) => {
-    e.currentTarget.style.opacity = '1';
+  const handleDragOverReorder = (e: DragEvent<HTMLDivElement>) => {
+    if (draggedPatient?.status === PatientStatus.Waiting) {
+        e.preventDefault();
+        e.currentTarget.style.borderTop = "2px solid #3b82f6";
+    }
   };
+  const handleDragLeaveReorder = (e: DragEvent<HTMLDivElement>) => e.currentTarget.style.borderTop = "";
 
-  const renderPatient = (patient: PatientVisit, options: {index?: number, isWaitingList?: boolean, isNextToPay?: boolean} = {}) => {
+  const renderPatient = (patient: PatientVisit, options: {index?: number, isNextToPay?: boolean, isNewlyAddedToPayment?: boolean} = {}) => {
     if (editingPatientId === patient.id && role === Role.Secretary) {
-      return (
-        <EditablePatientCard
-          key={patient.id}
-          patient={patient}
-          onCancel={() => setEditingPatientId(null)}
-          onSave={() => setEditingPatientId(null)}
-          isBeingCalled={callingPatient?.id === patient.id}
-        />
-      );
+      return <EditablePatientCard key={patient.id} patient={patient} onCancel={() => setEditingPatientId(null)} onSave={() => setEditingPatientId(null)} isBeingCalled={callingPatient?.id === patient.id} />;
     }
     if (paymentPatientId === patient.id && role === Role.Secretary) {
-        return (
-            <PaymentInputCard
-                key={patient.id}
-                patient={patient}
-                onCancel={() => setPaymentPatientId(null)}
-                onSave={handlePaymentSave}
-            />
-        )
+        return <PaymentInputCard key={patient.id} patient={patient} onCancel={() => setPaymentPatientId(null)} onSave={handlePaymentSave} />;
     }
     return (
       <PatientCard
@@ -328,6 +379,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         index={options.index}
         role={role}
         onUpdateStatus={onUpdateStatus}
+        onSetInProgress={handleSetInProgress}
         onCancel={onCancel}
         onCall={onCall}
         onEdit={() => setEditingPatientId(patient.id)}
@@ -337,68 +389,55 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         isBeingCalled={callingPatient?.id === patient.id}
         onReturnToWaiting={handleReturnToWaiting}
         onMarkAsDone={handleMarkAsDone}
-        isDraggable={options.isWaitingList && role === Role.Secretary}
+        isDraggable={role === Role.Secretary && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status)}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onDragEnd={handleDragEnd}
+        onDropReorder={handleReorderDrop}
+        onDragOverReorder={handleDragOverReorder}
+        onDragLeaveReorder={handleDragLeaveReorder}
         isNextToPay={options.isNextToPay}
+        isNewlyAddedToPayment={options.isNewlyAddedToPayment}
       />
     );
   };
 
   return (
     <>
-      <div className="mb-4">
-        <div className="relative">
-          <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="ابحث عن مراجع بالاسم..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-4 pr-10 py-2.5 bg-white text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-500 transition-shadow duration-200"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600">
-                <XMarkIcon className="w-5 h-5" />
-            </button>
-          )}
+      <div className="flex flex-col">
+        <div className="mb-4 flex-shrink-0">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="ابحث عن مراجع بالاسم..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-4 pr-10 py-2.5 bg-white text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-500 transition-shadow duration-200"
+            />
+            {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"><XMarkIcon className="w-5 h-5" /></button>}
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <QueueSection title="الانتظار" count={waiting.length}>
-          {waiting.map((p, i) => renderPatient(p, { index: i, isWaitingList: true }))}
-        </QueueSection>
-        <QueueSection title="قيد المعالجة" count={inProgress.length}>
-          {inProgress.map(p => renderPatient(p))}
-        </QueueSection>
-        <QueueSection title="بانتظار الدفع" count={pendingPayment.length}>
-          {pendingPayment.map((p, i) => renderPatient(p, { isNextToPay: i === 0 }))}
-        </QueueSection>
-        <QueueSection title="الأرشيف" count={completedOrCancelled.length}>
-          {completedOrCancelled.map(p => renderPatient(p))}
-        </QueueSection>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <QueueSection title="الانتظار" count={waiting.length} isDragOver={dragOverColumn === PatientStatus.Waiting} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Waiting)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Waiting)}>
+            {waiting.map((p, i) => renderPatient(p, { index: i }))}
+          </QueueSection>
+          <QueueSection title="قيد المعالجة" count={inProgress.length} isDragOver={dragOverColumn === PatientStatus.InProgress} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.InProgress)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.InProgress)}>
+            {inProgress.map(p => renderPatient(p))}
+          </QueueSection>
+          <QueueSection title="بانتظار الدفع" count={pendingPayment.length} isDragOver={dragOverColumn === PatientStatus.PendingPayment} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.PendingPayment)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.PendingPayment)}>
+            {pendingPayment.map((p, i) => renderPatient(p, { isNextToPay: i === 0, isNewlyAddedToPayment: newlyAddedToPayment.has(p.id) }))}
+          </QueueSection>
+          <QueueSection title="الأرشيف" count={completedOrCancelled.length} isDragOver={dragOverColumn === PatientStatus.Cancelled} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Cancelled)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Cancelled)}>
+            {completedOrCancelled.map(p => renderPatient(p))}
+          </QueueSection>
+        </div>
       </div>
       
       {serviceSelectionPatient && role === Role.Doctor && (
-        <ServiceSelectionModal 
-            patient={serviceSelectionPatient}
-            availableServices={availableServices}
-            onClose={() => setServiceSelectionPatient(null)}
-            onSave={(p, services) => {
-                onSetPatientServices(p, services);
-                setServiceSelectionPatient(null);
-            }}
-        />
+        <ServiceSelectionModal patient={serviceSelectionPatient} availableServices={availableServices} onClose={() => setServiceSelectionPatient(null)} onSave={(p, services) => { onSetPatientServices(p, services); setServiceSelectionPatient(null); }} />
       )}
       {historyPatient && (
-        <PatientHistoryModal
-            patientProfileId={historyPatient.patientProfileId}
-            patientName={historyPatient.name}
-            currentVisitId={historyPatient.id}
-            onClose={() => setHistoryPatient(null)}
-        />
+        <PatientHistoryModal patientProfileId={historyPatient.patientProfileId} patientName={historyPatient.name} currentVisitId={historyPatient.id} onClose={() => setHistoryPatient(null)} />
       )}
     </>
   );

@@ -1,16 +1,17 @@
 import React from 'react';
 import { Role } from '../types.ts';
-import { EyeIcon, ArrowRightOnRectangleIcon, UserCircleIcon } from './Icons.tsx';
+import { EyeIcon, ArrowRightOnRectangleIcon, UserCircleIcon, QuestionMarkCircleIcon } from './Icons.tsx';
 
 interface AdminHeaderProps {
   role: Role;
   onLogout: () => void;
   onShowPublicView: () => void;
   onOpenProfileModal: () => void;
+  onOpenHelpModal: () => void;
   profilePicUrl?: string;
 }
 
-const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicView, onOpenProfileModal, profilePicUrl }) => {
+const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicView, onOpenProfileModal, onOpenHelpModal, profilePicUrl }) => {
   const roleText = role === Role.Doctor ? 'الطبيب' : 'السكرتير';
 
   return (
@@ -32,6 +33,14 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicV
         >
           <EyeIcon className="w-5 h-5" />
           <span className="hidden md:inline">شاشة الجمهور</span>
+        </button>
+        <button
+          onClick={onOpenHelpModal}
+          className="flex items-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors"
+          title="تعليمات الاستخدام"
+        >
+          <QuestionMarkCircleIcon className="w-5 h-5" />
+           <span className="hidden md:inline">تعليمات</span>
         </button>
         <button
           onClick={onOpenProfileModal}

@@ -26,6 +26,7 @@ import CallingNotification from './components/CallingNotification.tsx';
 import SettingsModal from './components/SettingsModal.tsx';
 import ProfilePictureModal from './components/ProfilePictureModal.tsx';
 import AdminSidebar from './components/AdminSidebar.tsx';
+import HelpModal from './components/HelpModal.tsx';
 import { Cog8ToothIcon, ArrowUturnLeftIcon } from './components/Icons.tsx';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
+  const [isHelpModalOpen, setHelpModalOpen] = useState(false);
   
   const [callingPatient, setCallingPatient] = useState<PatientVisit | null>(null);
   const [callTimeoutId, setCallTimeoutId] = useState<number | null>(null);
@@ -51,7 +53,7 @@ function App() {
     } catch (e) {
         console.error("Failed to save theme to localStorage", e);
     }
-    document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f3f4f6';
+    document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f1f5f9'; // A lighter gray for admin
     document.body.dir = 'rtl';
   }, [settings.themeColor, role]);
 
@@ -236,16 +238,17 @@ function App() {
   // ADMIN VIEW (Doctor or Secretary)
   return (
     <>
-      <main className="p-4 md:p-6">
+      <div className="h-screen flex flex-col bg-slate-100">
         <AdminHeader 
           role={role} 
           onLogout={handleLogout} 
           onShowPublicView={() => setRole(Role.Public)}
           onOpenProfileModal={() => setProfileModalOpen(true)}
+          onOpenHelpModal={() => setHelpModalOpen(true)}
           profilePicUrl={role === Role.Doctor ? settings.doctorProfilePicUrl : settings.secretaryProfilePicUrl}
         />
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="flex-grow min-w-0">
+        <main className="flex-grow p-4 md:p-6 flex flex-col lg:flex-row gap-6 overflow-hidden items-start">
+          <div className="flex-grow min-w-0 w-full">
             <PatientQueueList 
                 patients={patients} 
                 role={role}
@@ -263,8 +266,8 @@ function App() {
             patients={patients}
             role={role}
           />
-        </div>
-      </main>
+        </main>
+      </div>
       
       <Toaster />
       {role === Role.Doctor && (
@@ -284,6 +287,12 @@ function App() {
               onSave={handleProfilePictureSave}
               currentImageUrl={role === Role.Doctor ? settings.doctorProfilePicUrl : settings.secretaryProfilePicUrl}
               role={role}
+          />
+      )}
+      {isHelpModalOpen && (
+          <HelpModal
+            role={role}
+            onClose={() => setHelpModalOpen(false)}
           />
       )}
     </>

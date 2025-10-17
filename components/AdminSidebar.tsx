@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { PlusIcon, ChartBarIcon, ChatBubbleOvalLeftEllipsisIcon, SpinnerIcon } from './Icons.tsx';
 import StatsPanel from './StatsPanel.tsx';
@@ -15,7 +16,6 @@ interface AdminSidebarProps {
 
 type ActiveTab = 'add' | 'stats' | 'chat';
 
-// Fix: Implement AddPatientPanel to replace the non-functional AdminPanel component.
 const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -31,13 +31,19 @@ const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) =
       toast.error('الرجاء إدخال اسم المراجع.');
       return;
     }
+    const ageNum = age ? parseInt(age, 10) : undefined;
+    if (age && (isNaN(ageNum) || ageNum < 0 || ageNum > 120)) {
+        toast.error('يرجى إدخال عمر صحيح (بين 0 و 120).');
+        return;
+    }
+
     setIsSubmitting(true);
     try {
       await addPatientVisit({
         name,
         phone,
         reason,
-        age: age ? parseInt(age, 10) : undefined,
+        age: ageNum,
         amountPaid: amountPaid ? parseFloat(amountPaid) : undefined,
         showDetailsToPublic,
       });
@@ -79,14 +85,14 @@ const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) =
         {settings.showAgeField && (
             <div>
                 <label htmlFor="age" className="block text-sm font-medium text-gray-700">العمر</label>
-                <input type="number" id="age" value={age} onChange={(e) => setAge(e.target.value)} className={formInputClasses}/>
+                <input type="text" inputMode="numeric" id="age" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className={formInputClasses}/>
             </div>
         )}
 
         {settings.showPhoneField && (
             <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700">رقم الهاتف</label>
-                <input type="tel" id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className={formInputClasses}/>
+                <input type="tel" id="phone" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className={formInputClasses}/>
             </div>
         )}
         
@@ -100,7 +106,7 @@ const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) =
         {settings.showAmountPaidField && (
              <div>
                 <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700">الدفعة الأولية</label>
-                <input type="number" id="amountPaid" step="any" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} className={formInputClasses}/>
+                <input type="text" inputMode="decimal" id="amountPaid" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={formInputClasses}/>
             </div>
         )}
         

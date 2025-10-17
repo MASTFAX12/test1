@@ -6,9 +6,10 @@ import {
   Timestamp, 
   doc, 
   updateDoc, 
-  deleteDoc 
+  deleteDoc,
+  setDoc
 } from 'firebase/firestore';
-import type { PatientStatus } from '../types.ts';
+import type { Patient, PatientStatus, ClinicSettings, Role } from '../types.ts';
 
 // IMPORTANT: Replace with your own Firebase project configuration
 const firebaseConfig = {
@@ -23,14 +24,30 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
-export const addPatient = async (name: string, phone: string, reason: string) => {
-  await addDoc(collection(db, 'queue'), {
-    name,
-    phone: phone || null,
-    reason: reason || 'زيارة عامة',
-    status: 'waiting',
-    createdAt: Timestamp.now(),
-  });
+export const addPatient = async (patientData: {
+    name: string;
+    phone: string;
+    reason: string;
+    age?: number;
+    amountPaid?: number;
+    showDetailsToPublic?: boolean;
+    visitDate?: Date;
+}) => {
+    const { name, phone, reason, age, amountPaid, showDetailsToPublic, visitDate } = patientData;
+    const visitTimestamp = visitDate ? Timestamp.fromDate(visitDate) : Timestamp.now();
+    await addDoc(collection(db, 'queue'), {
+        name,
+        phone: phone || null,
+        reason: reason || 'زيارة عامة',
+        age: age || null,
+        amountPaid: amountPaid ?? null,
+        requiredAmount: null,
+        servicesRendered: null,
+        showDetailsToPublic: showDetailsToPublic || false,
+        status: 'waiting',
+        createdAt: Timestamp.now(),
+        visitDate: visitTimestamp,
+    });
 };
 
 export const updatePatientStatus = async (id: string, status: PatientStatus) => {
@@ -38,16 +55,45 @@ export const updatePatientStatus = async (id: string, status: PatientStatus) => 
   await updateDoc(patientRef, { status });
 };
 
-export const updatePatientDetails = async (id: string, details: { name: string; phone?: string; reason?: string }) => {
+export const updatePatientDetails = async (id: string, details: Partial<Omit<Patient, 'id' | 'createdAt'>>) => {
   const patientRef = doc(db, 'queue', id);
-  await updateDoc(patientRef, {
-    name: details.name,
-    phone: details.phone || null,
-    reason: details.reason || 'زيارة عامة',
+  
+  // Create a mutable copy to avoid issues with deleting from a partial type
+  const dataToUpdate: { [key: string]: any } = { ...details };
+
+  // Firestore cannot store 'undefined', so we remove keys with undefined values.
+  Object.keys(dataToUpdate).forEach(key => {
+    if (dataToUpdate[key as keyof typeof dataToUpdate] === undefined) {
+      delete dataToUpdate[key as keyof typeof dataToUpdate];
+    }
   });
+
+  if (Object.keys(dataToUpdate).length > 0) {
+    await updateDoc(patientRef, dataToUpdate);
+  }
 };
+
 
 export const deletePatient = async (id: string) => {
   const patientRef = doc(db, 'queue', id);
   await deleteDoc(patientRef);
+};
+
+export const updateClinicSettings = async (settings: Partial<ClinicSettings>) => {
+  const settingsRef = doc(db, 'settings', 'clinicConfig');
+  // Make sure services array is handled correctly
+  const dataToSet = { ...settings };
+  if (dataToSet.services && !Array.isArray(dataToSet.services)) {
+    delete dataToSet.services; // Avoid saving invalid data
+  }
+  await setDoc(settingsRef, dataToSet, { merge: true });
+};
+
+export const addChatMessage = async (text: string, sender: Role) => {
+  if (!text.trim()) return;
+  await addDoc(collection(db, 'chat'), {
+    text,
+    sender,
+    createdAt: Timestamp.now(),
+  });
 };

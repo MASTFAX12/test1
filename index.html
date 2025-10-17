@@ -1,386 +1,71 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clinic Queue Manager</title>
+    <title>مدير طابور العيادة</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
     <style>
-      body {
-        font-family: 'Cairo', sans-serif;
-      }
-      @keyframes fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-      .animate-fade-in {
-        animation: fade-in 0.5s ease-out forwards;
-      }
-      @keyframes pulse-intense {
-        0%, 100% { 
-          transform: scale(1);
-          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #1a1a2e; /* Default background to prevent white flash */
         }
-        50% { 
-          transform: scale(1.02);
-          box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0);
+        /* Custom animation for intense pulsing */
+        @keyframes pulse-intense {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.02);
+            opacity: 0.95;
+          }
         }
-      }
-      .animate-pulse-intense {
-        animation: pulse-intense 2s infinite;
-      }
+        .animate-pulse-intense {
+          animation: pulse-intense 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        /* Custom animation for fade in */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out forwards;
+        }
+         /* Custom shimmer animation */
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%) skewX(-15deg);
+            }
+            100% {
+                transform: translateX(200%) skewX(-15deg);
+            }
+        }
+        /* Marquee animation */
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
     </style>
-  <script type="importmap">
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
-    "react/jsx-runtime": "https://aistudiocdn.com/react@^19.2.0/jsx-runtime",
-    "firebase/app": "https://aistudiocdn.com/firebase@^12.4.0/app",
-    "firebase/firestore": "https://aistudiocdn.com/firebase@^12.4.0/firestore",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "firebase/": "https://aistudiocdn.com/firebase@^12.4.0/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
+    "react-hot-toast": "https://aistudiocdn.com/react-hot-toast@^2.6.0"
   }
 }
 </script>
-</head>
-  <body>
-    <div id="root"></div>
-    <script type="module">
-      // --- START OF BUNDLED APPLICATION ---
-      // This single script contains all the transpiled TSX and TS files.
-      
-      import React, { useState, useEffect, useMemo, useRef } from 'react';
-      import ReactDOM from 'react-dom/client';
-      import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-      import { initializeApp } from 'firebase/app';
-      import { getFirestore, collection, addDoc, Timestamp, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
-
-      // From: types.ts
-      const PatientStatus = {
-        Waiting: 'waiting',
-        InProgress: 'inprogress',
-        Completed: 'completed',
-        Cancelled: 'cancelled',
-      };
-
-      // From: constants.ts
-      const ADMIN_PASSWORD = 'admin';
-
-      // From: services/firebase.ts
-      const firebaseConfig = {
-        apiKey: "AIzaSyAGcm_YmjwQfodR7uPG1lF33AsEs1eF5rE",
-        authDomain: "studio-1806054817-aa9e0.firebaseapp.com",
-        projectId: "studio-1806054817-aa9e0",
-        storageBucket: "studio-1806054817-aa9e0.appspot.com",
-        messagingSenderId: "611346994999",
-        appId: "1:611346994999:web:138f1525891169860cecb2"
-      };
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const addPatient = async (name, phone, reason) => {
-        await addDoc(collection(db, 'queue'), {
-          name,
-          phone: phone || null,
-          reason: reason || 'زيارة عامة',
-          status: 'waiting',
-          createdAt: Timestamp.now(),
-        });
-      };
-      const updatePatientStatus = async (id, status) => {
-        const patientRef = doc(db, 'queue', id);
-        await updateDoc(patientRef, { status });
-      };
-      const updatePatientDetails = async (id, details) => {
-        const patientRef = doc(db, 'queue', id);
-        await updateDoc(patientRef, {
-          name: details.name,
-          phone: details.phone || null,
-          reason: details.reason || 'زيارة عامة',
-        });
-      };
-      const deletePatient = async (id) => {
-        const patientRef = doc(db, 'queue', id);
-        await deleteDoc(patientRef);
-      };
-
-      // From: hooks/useQueue.ts
-      const useQueue = () => {
-        const [patients, setPatients] = useState([]);
-        const [loading, setLoading] = useState(true);
-        const [error, setError] = useState(null);
-        useEffect(() => {
-          const q = query(collection(db, 'queue'), orderBy('createdAt', 'asc'));
-          const unsubscribe = onSnapshot(q, (snapshot) => {
-            try {
-              const patientsData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
-              setPatients(patientsData);
-              setLoading(false);
-            } catch (err) {
-              setError(err instanceof Error ? err : new Error('Failed to parse patient data'));
-              setLoading(false);
-            }
-          }, (err) => {
-            setError(err);
-            setLoading(false);
-          });
-          return () => unsubscribe();
-        }, []);
-        return { patients, loading, error };
-      };
-      
-      // From: components/Icons.tsx
-      const GearIcon = ({ className }) => (_jsxs("svg", { className: className, xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", children: [_jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.438.995s.145.755.438.995l1.003.827c.48.398.668 1.03.26 1.431l-1.296 2.247a1.125 1.125 0 01-1.37.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 01-.22-.127c-.324-.196-.72-.257-1.075-.124l-1.217.456a1.125 1.125 0 01-1.37-.49l-1.296-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.437-.995s-.145-.755-.437-.995l-1.004-.827a1.125 1.125 0 01-.26-1.431l1.296-2.247a1.125 1.125 0 011.37-.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.213-1.28z" }), _jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z" })] }));
-      const UserIcon = ({ className }) => (_jsx("svg", { className: className, xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", children: _jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" }) }));
-
-      // From: components/CurrentPatientCard.tsx
-      const CurrentPatientCard = ({ patient, callingPatient }) => {
-          const isCalling = !!callingPatient;
-          const currentPatient = !isCalling && patient && patient.status === PatientStatus.InProgress ? patient : null;
-          const containerClasses = isCalling
-              ? 'bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl p-6 text-center shadow-lg border-4 border-white/50 relative h-full flex flex-col justify-center animate-pulse-intense'
-              : 'bg-gradient-to-br from-red-400 to-pink-400 rounded-2xl p-6 text-center shadow-lg border-2 border-white/50 relative overflow-hidden h-full flex flex-col';
-          return (_jsxs("div", { className: containerClasses, children: [!isCalling && (_jsxs(_Fragment, { children: [_jsx("div", { className: "absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-transparent animate-[shimmer_3s_infinite]" }), _jsx(UserIcon, { className: "absolute inset-0 w-full h-full text-gray-800 opacity-10 p-8" })] })), _jsx("div", { className: "relative z-10 flex flex-col items-center justify-center flex-grow", children: isCalling ? (_jsxs(_Fragment, { children: [_jsx("h2", { className: "text-3xl md:text-5xl font-bold mb-4 text-white drop-shadow-lg", children: "جاري النداء على" }), _jsx("p", { className: "text-5xl md:text-8xl font-black tracking-wider break-words text-white drop-shadow-xl", children: callingPatient.name })] })) : (_jsx(_Fragment, { children: currentPatient ? (_jsxs(_Fragment, { children: [_jsx("h2", { className: "text-5xl lg:text-7xl font-bold text-gray-800 drop-shadow-md mb-4 break-words leading-tight", children: currentPatient.name }), currentPatient.reason && (_jsx("p", { className: "text-2xl lg:text-3xl text-gray-700 opacity-90 mt-2", children: currentPatient.reason }))] })) : (_jsx("div", { className: "text-4xl lg:text-5xl font-bold text-gray-800 opacity-80", children: "لا يوجد مراجع حالياً" })) })) }), !isCalling && (_jsx("div", { className: "relative z-20 flex-shrink-0", children: _jsxs("div", { className: "bg-white/90 backdrop-blur-sm rounded-xl py-2 px-4 shadow-md inline-flex items-center gap-3", children: [_jsx(UserIcon, { className: "w-8 h-8 text-gray-700" }), _jsx("span", { className: "text-xl font-semibold text-gray-800", children: "المراجع الحالي داخل العيادة" })] }) }))] }));
-      };
-      
-      // From: components/EditablePatientCard.tsx
-      const EditablePatientCard = ({ patient, onCancel, onSave }) => {
-        const [name, setName] = useState(patient.name);
-        const [phone, setPhone] = useState(patient.phone || '');
-        const [reason, setReason] = useState(patient.reason || '');
-        const [isSaving, setIsSaving] = useState(false);
-        const handleSave = async (e) => {
-            e.preventDefault();
-            if (!name) return;
-            setIsSaving(true);
-            try {
-                await updatePatientDetails(patient.id, { name, phone, reason });
-                onSave();
-            } catch (error) {
-                console.error("Failed to update patient details:", error);
-            } finally {
-                setIsSaving(false);
-            }
-        };
-        return (_jsx("div", { className: "bg-blue-50 border-2 border-blue-400 rounded-xl p-4 mb-3 shadow-lg animate-fade-in", children: _jsxs("form", { onSubmit: handleSave, className: "space-y-3", children: [_jsxs("div", { children: [_jsx("label", { className: "text-xs font-bold text-gray-600", children: "الاسم" }), _jsx("input", { type: "text", value: name, onChange: (e) => setName(e.target.value), className: "w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm", required: true, autoFocus: true })] }), _jsxs("div", { children: [_jsx("label", { className: "text-xs font-bold text-gray-600", children: "الهاتف" }), _jsx("input", { type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), className: "w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" })] }), _jsxs("div", { children: [_jsx("label", { className: "text-xs font-bold text-gray-600", children: "السبب" }), _jsx("input", { type: "text", value: reason, onChange: (e) => setReason(e.target.value), className: "w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" })] }), _jsxs("div", { className: "flex justify-end gap-2 pt-2", children: [_jsx("button", { type: "button", onClick: onCancel, className: "bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md transition duration-200 text-xs", children: "إلغاء" }), _jsx("button", { type: "submit", disabled: isSaving, className: "bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-xs disabled:bg-gray-400", children: isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات' })] })] }) }));
-      };
-      
-      // From: components/PatientQueueList.tsx
-      const PatientCard = ({ patient, queueNumber, isAdmin, onEdit, isBeingCalled, onCall, onDismissCall }) => {
-        const [confirmingDelete, setConfirmingDelete] = useState(false);
-        useEffect(() => {
-            setConfirmingDelete(false);
-        }, [patient.id]);
-        const handleComplete = () => updatePatientStatus(patient.id, PatientStatus.Completed);
-        const handleCancel = () => updatePatientStatus(patient.id, PatientStatus.Cancelled);
-        const finalDelete = () => {
-            deletePatient(patient.id);
-        };
-        const statusConfig = {
-            [PatientStatus.Waiting]: { text: 'انتظار', color: 'bg-blue-500', gradient: 'bg-gradient-to-br from-blue-500 to-cyan-400', icon: null, borderColor: 'border-transparent' },
-            [PatientStatus.InProgress]: { text: 'بالداخل', color: 'bg-green-500', gradient: 'bg-gradient-to-br from-green-500 to-emerald-400', icon: '▶', borderColor: 'border-green-400' },
-            [PatientStatus.Completed]: { text: 'اكتمل', color: 'bg-gray-500', gradient: 'bg-gradient-to-br from-gray-500 to-slate-400', icon: '✓', borderColor: 'border-transparent' },
-            [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-yellow-500', gradient: 'bg-gradient-to-br from-yellow-500 to-amber-400', icon: '✗', borderColor: 'border-transparent' },
-        };
-        const currentStatus = statusConfig[patient.status];
-        const borderPulse = isBeingCalled ? 'animate-pulse' : '';
-        const adminActions = confirmingDelete ? (_jsxs(_Fragment, { children: [_jsx("span", { className: "text-sm text-red-700 font-bold hidden sm:inline", children: "متأكد؟" }), _jsx("button", { onClick: finalDelete, className: "bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "نعم, احذف" }), _jsx("button", { onClick: () => setConfirmingDelete(false), className: "bg-gray-400 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "إلغاء" })] })) : (_jsxs(_Fragment, { children: [patient.status === PatientStatus.Waiting && (_jsxs(_Fragment, { children: [_jsx("button", { onClick: onCall, className: "bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "استدعاء" }), _jsx("button", { onClick: handleCancel, className: "bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "إلغاء" })] })), patient.status === PatientStatus.InProgress && (isBeingCalled ? (_jsx("button", { onClick: onDismissCall, className: "bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm animate-pulse", children: "إخفاء النداء" })) : (_jsx("button", { onClick: handleComplete, className: "bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "إنهاء" }))), _jsx("button", { onClick: onEdit, className: "bg-gray-400 hover:bg-gray-500 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "تعديل" }), _jsx("button", { onClick: () => setConfirmingDelete(true), className: "bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-sm", children: "حذف" })] }));
-        return (_jsxs("div", { className: `bg-gradient-to-r from-slate-50 to-gray-100 text-gray-800 rounded-xl p-4 mb-3 flex items-center gap-4 shadow-md border-2 ${currentStatus.borderColor} ${borderPulse} hover:border-blue-300 transition-all duration-300`, children: [_jsx("div", { className: `${currentStatus.gradient} text-white w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0 shadow-lg`, children: patient.status === PatientStatus.Waiting ? queueNumber : currentStatus.icon }), _jsxs("div", { className: "flex-1 min-w-0", children: [_jsxs("div", { className: "flex items-center justify-between gap-2", children: [_jsx("p", { className: "text-4xl font-bold truncate", children: patient.name }), isAdmin && patient.status !== PatientStatus.Waiting && _jsx("span", { className: `text-xs font-bold text-white px-2 py-1 rounded-full ${currentStatus.color}`, children: currentStatus.text })] }), _jsx("p", { className: "text-sm text-gray-600 truncate", children: patient.reason || 'زيارة عامة' })] }), isAdmin && (_jsx("div", { className: "flex gap-2 flex-wrap justify-end items-center", children: adminActions }))] }));
-      };
-      const PatientQueueList = ({ patients, isAdmin, activelyCallingPatientId, onCallPatient, onDismissCall }) => {
-        const [editingPatientId, setEditingPatientId] = useState(null);
-        const waitingPatients = patients.filter(p => p.status === PatientStatus.Waiting);
-        if (isAdmin) {
-            const sortedPatients = [...patients].sort((a, b) => {
-                const statusOrder = {
-                    [PatientStatus.InProgress]: 1,
-                    [PatientStatus.Waiting]: 2,
-                    [PatientStatus.Cancelled]: 3,
-                    [PatientStatus.Completed]: 4,
-                };
-                if (statusOrder[a.status] !== statusOrder[b.status]) {
-                    return statusOrder[a.status] - statusOrder[b.status];
-                }
-                if (a.status === PatientStatus.Waiting) {
-                    return a.createdAt.toMillis() - b.createdAt.toMillis();
-                }
-                return b.createdAt.toMillis() - a.createdAt.toMillis();
-            });
-            return (_jsxs("div", { className: "bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-blue-500/20 h-full flex flex-col", children: [_jsx("h2", { className: "text-3xl font-bold text-center text-gray-800 mb-4 flex-shrink-0", children: "إدارة قائمة المراجعين" }), _jsx("div", { className: "flex-1 overflow-y-auto pr-2 -mr-2", children: sortedPatients.length > 0 ? (sortedPatients.map((patient) => {
-                if (patient.id === editingPatientId) {
-                    return (_jsx(EditablePatientCard, { patient: patient, onSave: () => setEditingPatientId(null), onCancel: () => setEditingPatientId(null) }, patient.id));
-                }
-                const queueNumber = waitingPatients.findIndex(p => p.id === patient.id) + 1;
-                return (_jsx(PatientCard, { patient: patient, queueNumber: queueNumber > 0 ? queueNumber : undefined, isAdmin: isAdmin, onEdit: () => setEditingPatientId(patient.id), isBeingCalled: patient.id === activelyCallingPatientId, onCall: () => onCallPatient?.(patient), onDismissCall: () => onDismissCall?.() }, patient.id));
-            })) : (_jsxs("div", { className: "text-center text-gray-500 pt-16", children: [_jsx("div", { className: "text-6xl mb-4", children: "🎉" }), _jsx("p", { className: "text-2xl font-semibold", children: "لا يوجد مراجعين اليوم" })] })) })] }));
-        }
-        return (_jsxs("div", { className: "bg-white/95 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-blue-500/20 h-full flex flex-col", children: [_jsx("h2", { className: "text-3xl font-bold text-center text-gray-800 mb-4 flex-shrink-0", children: "📋 المراجعين التاليين" }), _jsx("div", { className: "flex-1 overflow-y-auto pr-2 -mr-2", children: waitingPatients.length > 0 ? (waitingPatients.map((patient, index) => (_jsx(PatientCard, { patient: patient, queueNumber: index + 1, isAdmin: isAdmin, onEdit: () => { }, isBeingCalled: false, onCall: () => { }, onDismissCall: () => { } }, patient.id)))) : (_jsxs("div", { className: "text-center text-gray-500 pt-16", children: [_jsx("div", { className: "text-6xl mb-4", children: "😊" }), _jsx("p", { className: "text-2xl font-semibold", children: "لا يوجد مراجعين في قائمة الانتظار" })] })) })] }));
-      };
-      
-      // From: components/AdminPanel.tsx
-      const AdminPanel = () => {
-        const [name, setName] = useState('');
-        const [phone, setPhone] = useState('');
-        const [reason, setReason] = useState('');
-        const [isSubmitting, setIsSubmitting] = useState(false);
-        const [message, setMessage] = useState(null);
-        const handleSubmit = async (e) => {
-            e.preventDefault();
-            if (!name) {
-                setMessage({ text: 'يرجى إدخال اسم المريض', type: 'error' });
-                return;
-            }
-            setIsSubmitting(true);
-            setMessage(null);
-            try {
-                await addPatient(name, phone, reason);
-                setMessage({ text: `تمت إضافة ${name} بنجاح!`, type: 'success' });
-                setName('');
-                setPhone('');
-                setReason('');
-            } catch (error) {
-                setMessage({ text: 'حدث خطأ أثناء إضافة المريض', type: 'error' });
-                console.error(error);
-            } finally {
-                setIsSubmitting(false);
-                setTimeout(() => setMessage(null), 4000);
-            }
-        };
-        return (_jsxs("div", { className: "bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-lg border-2 border-blue-500/20 mb-6", children: [_jsx("h2", { className: "text-2xl font-bold text-gray-800 mb-4 text-center", children: "إضافة مراجع جديد" }), _jsxs("form", { onSubmit: handleSubmit, className: "space-y-4", children: [_jsxs("div", { children: [_jsx("label", { htmlFor: "patientName", className: "block text-sm font-medium text-gray-700 mb-1", children: "اسم المراجع" }), _jsx("input", { id: "patientName", type: "text", value: name, onChange: (e) => setName(e.target.value), className: "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500", placeholder: "مثال: أحمد محمد", required: true })] }), _jsxs("div", { children: [_jsx("label", { htmlFor: "patientPhone", className: "block text-sm font-medium text-gray-700 mb-1", children: "رقم الهاتف (اختياري)" }), _jsx("input", { id: "patientPhone", type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), className: "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500", placeholder: "07..." })] }), _jsxs("div", { children: [_jsx("label", { htmlFor: "visitReason", className: "block text-sm font-medium text-gray-700 mb-1", children: "سبب الزيارة (اختياري)" }), _jsx("input", { id: "visitReason", type: "text", value: reason, onChange: (e) => setReason(e.target.value), className: "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500", placeholder: "استشارة, مراجعة, ...الخ" })] }), _jsx("button", { type: "submit", disabled: isSubmitting, className: "w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 transition-colors", children: isSubmitting ? 'جاري الإضافة...' : 'إضافة إلى القائمة' })] }), message && (_jsx("div", { className: `mt-4 p-3 rounded-md text-center text-sm font-medium ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`, children: message.text }))] }));
-      };
-
-      // From: components/LoginModal.tsx
-      const LoginModal = ({ onClose, onLoginSuccess }) => {
-        const [password, setPassword] = useState('');
-        const [error, setError] = useState('');
-        const handleLogin = (e) => {
-            e.preventDefault();
-            if (password === ADMIN_PASSWORD) {
-                onLoginSuccess();
-            } else {
-                setError('كلمة المرور غير صحيحة');
-                setPassword('');
-            }
-        };
-        return (_jsx("div", { className: "fixed inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex flex-col items-center justify-center z-50 animate-fade-in p-4", children: _jsx("div", { className: "bg-black/20 backdrop-blur-lg rounded-xl shadow-2xl p-8 w-full max-w-sm mx-auto border border-white/20", children: _jsxs("form", { onSubmit: handleLogin, className: "space-y-6", children: [_jsx("h2", { className: "text-3xl font-bold text-center text-white mb-8", children: "تسجيل دخول المسؤول" }), _jsxs("div", { children: [_jsx("label", { htmlFor: "password", className: "block text-white/80 text-sm font-bold mb-2", children: "كلمة المرور" }), _jsx("input", { id: "password", type: "password", value: password, onChange: (e) => {
-                    setPassword(e.target.value);
-                    setError('');
-                }, className: "shadow-inner appearance-none border border-white/20 bg-white/10 rounded w-full py-3 px-4 text-white leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400", autoFocus: true })] }), error && _jsx("p", { className: "text-red-400 text-center text-sm -my-2", children: error }), _jsxs("div", { className: "flex flex-col gap-4 pt-2", children: [_jsx("button", { type: "submit", className: "bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline transition-colors w-full", children: "دخول" }), _jsx("button", { type: "button", onClick: onClose, className: "bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline transition-colors w-full", children: "العودة للشاشة الرئيسية" })] })] }) }) }));
-      };
-      
-      // From: components/TimeDisplay.tsx
-      const TimeDisplay = () => {
-        const [time, setTime] = useState(new Date());
-        useEffect(() => {
-            const timerId = setInterval(() => setTime(new Date()), 1000);
-            return () => clearInterval(timerId);
-        }, []);
-        return (_jsx("div", { className: "bg-white/10 backdrop-blur-sm text-white font-semibold px-4 py-2 rounded-lg shadow-lg text-sm md:text-base", children: time.toLocaleString('ar-SA', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            }) }));
-      };
-      
-      // From: components/StatsPanel.tsx
-      const StatsPanel = ({ patients }) => {
-        const waitingCount = patients.filter(p => p.status === PatientStatus.Waiting).length;
-        const inProgressCount = patients.filter(p => p.status === PatientStatus.InProgress).length;
-        const totalToday = patients.length;
-        return (_jsxs("div", { className: "bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-lg border-2 border-blue-500/20", children: [_jsx("h3", { className: "text-xl font-bold text-gray-800 mb-4 text-center", children: "إحصائيات اليوم" }), _jsxs("div", { className: "grid grid-cols-3 gap-3 text-gray-800", children: [_jsxs("div", { className: "bg-blue-100 p-3 rounded-lg text-center", children: [_jsx("div", { className: "text-3xl font-bold", children: waitingCount }), _jsx("div", { className: "text-xs text-blue-800 font-semibold", children: "في الانتظار" })] }), _jsxs("div", { className: "bg-green-100 p-3 rounded-lg text-center", children: [_jsx("div", { className: "text-3xl font-bold", children: inProgressCount }), _jsx("div", { className: "text-xs text-green-800 font-semibold", children: "داخل العيادة" })] }), _jsxs("div", { className: "bg-gray-200 p-3 rounded-lg text-center", children: [_jsx("div", { className: "text-3xl font-bold", children: totalToday }), _jsx("div", { className: "text-xs text-gray-700 font-semibold", children: "إجمالي اليوم" })] })] })] }));
-      };
-      
-      // From: utils/audio.ts
-      let audioContext = null;
-      const initializeAudio = () => {
-        if (!audioContext) {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            catch (e) {
-                console.error("Web Audio API is not supported in this browser", e);
-            }
-        }
-      };
-      const playNotificationSound = () => {
-        if (document.visibilityState === 'visible') {
-            initializeAudio();
-        }
-        if (!audioContext || audioContext.state === 'suspended') {
-            audioContext?.resume();
-        }
-        if (!audioContext) return;
-        const playTone = (frequency, startTime, duration) => {
-            if (!audioContext) return;
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.type = 'sine';
-            oscillator.frequency.value = frequency;
-            const now = audioContext.currentTime;
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.5, now + startTime + 0.01);
-            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + startTime + duration);
-            oscillator.start(now + startTime);
-            oscillator.stop(now + startTime + duration);
-        };
-        playTone(523.25, 0, 0.2);
-        playTone(659.25, 0.2, 0.2);
-        playTone(783.99, 0.4, 0.3);
-      };
-
-      // From: App.tsx
-      const App = () => {
-        const { patients, loading, error } = useQueue();
-        const [isAdmin, setIsAdmin] = useState(false);
-        const [isModalOpen, setIsModalOpen] = useState(false);
-        const [activelyCallingPatientId, setActivelyCallingPatientId] = useState(null);
-        const handleInitiateCall = (patient) => {
-            const currentInProgress = patients.find(p => p.status === PatientStatus.InProgress);
-            if (currentInProgress && currentInProgress.id !== patient.id) {
-                updatePatientStatus(currentInProgress.id, PatientStatus.Completed);
-            }
-            updatePatientStatus(patient.id, PatientStatus.InProgress);
-            setActivelyCallingPatientId(patient.id);
-            playNotificationSound();
-        };
-        const handleDismissCall = () => {
-            setActivelyCallingPatientId(null);
-        };
-        const activelyCallingPatient = useMemo(() => patients.find(p => p.id === activelyCallingPatientId) || null, [patients, activelyCallingPatientId]);
-        const currentPatient = useMemo(() => patients.find(p => p.status === PatientStatus.InProgress), [patients]);
-        if (loading) {
-            return (_jsx("div", { className: "bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] min-h-screen flex items-center justify-center text-white text-2xl", children: "جاري تحميل البيانات..." }));
-        }
-        if (error) {
-            return (_jsxs("div", { className: "bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] min-h-screen flex items-center justify-center text-red-400 text-2xl", children: ["حدث خطأ: ", error.message] }));
-        }
-        return (_jsxs(_Fragment, { children: [isModalOpen && (_jsx(LoginModal, { onClose: () => setIsModalOpen(false), onLoginSuccess: () => {
-                    setIsAdmin(true);
-                    setIsModalOpen(false);
-                } })), isAdmin ? (_jsxs("div", { className: "bg-slate-100 min-h-screen text-gray-800 grid grid-cols-1 lg:grid-cols-4 gap-6 p-6", children: [_jsxs("div", { className: "lg:col-span-1 flex flex-col gap-6", children: [_jsx(AdminPanel, {}), _jsx(StatsPanel, { patients: patients }), _jsx("button", { onClick: () => setIsAdmin(false), className: "w-full bg-red-600 text-white font-bold py-3 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors mt-auto", children: "تسجيل الخروج" })] }), _jsx("div", { className: "lg:col-span-3 h-[calc(100vh-3rem)]", children: _jsx(PatientQueueList, { patients: patients, isAdmin: isAdmin, activelyCallingPatientId: activelyCallingPatientId, onCallPatient: handleInitiateCall, onDismissCall: handleDismissCall }) })] })) : (_jsxs("div", { className: "bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] min-h-screen text-white overflow-hidden selection:bg-cyan-300 selection:text-cyan-900", children: [_jsxs("header", { className: "p-4 flex items-center bg-black/20 backdrop-blur-sm", children: [_jsx("div", { className: "flex-1" }), _jsx("h1", { className: "text-2xl md:text-3xl font-extrabold tracking-wide text-center px-4", children: "عيادة الدكتور محمد عباس المشهداني" }), _jsxs("div", { className: "flex-1 flex justify-end items-center gap-4", children: [_jsx(TimeDisplay, {}), _jsx("button", { onClick: () => setIsModalOpen(true), className: "p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors", "aria-label": 'الدخول كمسؤول', children: _jsx(GearIcon, { className: "w-6 h-6" }) })] })] }), _jsx("main", { className: "p-4 lg:p-6", children: _jsxs("div", { className: "grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-100px)]", children: [_jsx("div", { className: "lg:col-span-1 h-full", children: _jsx(CurrentPatientCard, { patient: currentPatient, callingPatient: activelyCallingPatient }) }), _jsx("div", { className: "lg:col-span-2 h-full", children: _jsx(PatientQueueList, { patients: patients, isAdmin: isAdmin }) })] }) })] }))] }));
-      };
-      
-      // From: index.tsx
-      const rootElement = document.getElementById('root');
-      if (!rootElement) {
-        throw new Error("Could not find root element to mount to");
-      }
-      const root = ReactDOM.createRoot(rootElement);
-      root.render(_jsx(React.StrictMode, { children: _jsx(App, {}) }));
-
-      // --- END OF BUNDLED APPLICATION ---
-    </script>
-  </body>
+    <script type="module" src="./index.tsx"></script>
+</body>
 </html>

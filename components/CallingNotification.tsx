@@ -1,9 +1,9 @@
 // FIX: Provide full implementation for the CallingNotification component.
 import React from 'react';
-import type { Patient } from '../types.ts';
+import type { PatientVisit } from '../types.ts';
 
 interface CallingNotificationProps {
-  patient: Patient | null;
+  patient: PatientVisit | null;
   onClose: () => void;
 }
 

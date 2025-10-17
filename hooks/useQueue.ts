@@ -1,11 +1,12 @@
 
+
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase.ts';
-import type { Patient } from '../types.ts';
+import type { PatientVisit } from '../types.ts';
 
 export const useQueue = () => {
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<PatientVisit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -17,7 +18,7 @@ export const useQueue = () => {
         const patientsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-        })) as Patient[];
+        })) as PatientVisit[];
         setPatients(patientsData);
         setLoading(false);
       } catch (err) {

@@ -5,7 +5,7 @@ import { useQueue } from './hooks/useQueue.ts';
 import { useSettings } from './hooks/useSettings.ts';
 import { usePrevious } from './hooks/usePrevious.ts';
 import { Role, PatientStatus } from './types.ts';
-import type { Patient, Service } from './types.ts';
+import type { PatientVisit, Service } from './types.ts';
 import { 
   updatePatientStatus, 
   cancelPatient, 
@@ -17,17 +17,15 @@ import {
 import { playNotificationSound } from './utils/audio.ts';
 
 import AdminHeader from './components/AdminHeader.tsx';
-import AdminPanel from './components/AdminPanel.tsx';
 import PatientQueueList from './components/PatientQueueList.tsx';
 import CurrentPatientCard from './components/CurrentPatientCard.tsx';
 import LoginModal from './components/LoginModal.tsx';
 import Marquee from './components/Marquee.tsx';
 import TimeDisplay from './components/TimeDisplay.tsx';
 import CallingNotification from './components/CallingNotification.tsx';
-import StatsPanel from './components/StatsPanel.tsx';
 import SettingsModal from './components/SettingsModal.tsx';
 import ProfilePictureModal from './components/ProfilePictureModal.tsx';
-import ChatPanel from './components/ChatPanel.tsx';
+import AdminSidebar from './components/AdminSidebar.tsx';
 import { Cog8ToothIcon, ArrowUturnLeftIcon } from './components/Icons.tsx';
 
 function App() {
@@ -39,15 +37,20 @@ function App() {
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   
-  const [callingPatient, setCallingPatient] = useState<Patient | null>(null);
+  const [callingPatient, setCallingPatient] = useState<PatientVisit | null>(null);
   const [callTimeoutId, setCallTimeoutId] = useState<number | null>(null);
   
-  const [notifiedPatient, setNotifiedPatient] = useState<Patient | null>(null);
+  const [notifiedPatient, setNotifiedPatient] = useState<PatientVisit | null>(null);
 
   const prevPatients = usePrevious(patients);
   
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-color', settings.themeColor);
+    try {
+        localStorage.setItem('clinic-theme-color', settings.themeColor);
+    } catch (e) {
+        console.error("Failed to save theme to localStorage", e);
+    }
     document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f3f4f6';
     document.body.dir = 'rtl';
   }, [settings.themeColor, role]);
@@ -72,7 +75,7 @@ function App() {
     setRole(Role.Public);
   };
 
-  const handleCallPatient = useCallback((patient: Patient) => {
+  const handleCallPatient = useCallback((patient: PatientVisit) => {
     if (settings.callSoundEnabled) {
       playNotificationSound();
     }
@@ -118,12 +121,13 @@ function App() {
     }
   };
   
-  const handleSetServices = async (patient: Patient, services: Service[]) => {
+  const handleSetServices = async (patient: PatientVisit, services: Service[]) => {
       const requiredAmount = services.reduce((acc, s) => acc + s.price, 0);
       try {
           await updatePatientDetails(patient.id, {
               servicesRendered: services,
-              requiredAmount: requiredAmount
+              requiredAmount: requiredAmount,
+              sentToPaymentAt: Timestamp.now() // Set timestamp when sent to payment
           });
           await updatePatientStatus(patient.id, PatientStatus.PendingPayment);
           toast.success(`تم تحديد رسوم ${patient.name} وإرسالها للسكرتير.`);
@@ -254,16 +258,12 @@ function App() {
                 onSetPatientServices={handleSetServices}
             />
           </div>
-          <aside className="lg:w-96 flex-shrink-0 space-y-6 lg:sticky top-28 self-start">
-             {role === Role.Secretary && <AdminPanel settings={settings} />}
-          </aside>
+          <AdminSidebar 
+            settings={settings}
+            patients={patients}
+            role={role}
+          />
         </div>
-        
-        <div className="fixed bottom-5 right-5 flex flex-col gap-4 z-40">
-            <StatsPanel patients={patients} />
-            <ChatPanel role={role} />
-        </div>
-
       </main>
       
       <Toaster />

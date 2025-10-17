@@ -12,12 +12,13 @@ import {
   where,
   getDocs,
   writeBatch,
-  limit
+  limit,
+  orderBy
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { Role } from '../types.ts';
-import type { Patient, PatientStatus, ClinicSettings } from '../types.ts';
+import type { PatientVisit, PatientStatus, ClinicSettings, PatientProfile } from '../types.ts';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -36,8 +37,46 @@ const storage = getStorage(app);
 
 export { db, storage };
 
+// Finds an existing patient profile or creates a new one.
+// Returns the ID of the patient profile.
+export const findOrCreatePatientProfile = async (details: { name: string; phone: string; age?: number }): Promise<string> => {
+    if (!db) throw new Error("Firestore not initialized");
+    const patientsRef = collection(db, 'patients');
+    
+    // 1. Try to find by phone number if provided, as it's more unique
+    if (details.phone) {
+        const q = query(patientsRef, where('phone', '==', details.phone), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            return snapshot.docs[0].id;
+        }
+    }
+    
+    // 2. If no phone or not found, try to find by name (less reliable)
+    const qByName = query(patientsRef, where('name', '==', details.name), limit(1));
+    const snapshotByName = await getDocs(qByName);
+    if (!snapshotByName.empty) {
+        // Optionally update details if found by name
+        const patientDoc = snapshotByName.docs[0];
+        await updateDoc(doc(db, 'patients', patientDoc.id), {
+            phone: details.phone || patientDoc.data().phone || null,
+            age: details.age || patientDoc.data().age || null,
+        });
+        return patientDoc.id;
+    }
 
-export const addPatient = async (patientData: {
+    // 3. If not found, create a new patient profile
+    const newPatientRef = await addDoc(patientsRef, {
+        name: details.name,
+        phone: details.phone || null,
+        age: details.age || null,
+        firstVisit: Timestamp.now(),
+    });
+    return newPatientRef.id;
+};
+
+
+export const addPatientVisit = async (patientData: {
     name: string;
     phone: string;
     reason: string;
@@ -48,8 +87,13 @@ export const addPatient = async (patientData: {
 }) => {
     if (!db) return;
     const { name, phone, reason, age, amountPaid, showDetailsToPublic, visitDate } = patientData;
+
+    // Get or create the patient profile first
+    const patientProfileId = await findOrCreatePatientProfile({ name, phone, age });
+
     const visitTimestamp = visitDate ? Timestamp.fromDate(visitDate) : Timestamp.now();
     await addDoc(collection(db, 'queue'), {
+        patientProfileId,
         name,
         phone: phone || null,
         reason: reason || 'زيارة عامة',
@@ -59,7 +103,7 @@ export const addPatient = async (patientData: {
         servicesRendered: null,
         showDetailsToPublic: showDetailsToPublic || false,
         status: 'waiting',
-        createdAt: Timestamp.now(),
+        createdAt: Timestamp.now(), // For queue order
         visitDate: visitTimestamp,
     });
 };
@@ -70,11 +114,22 @@ export const updatePatientStatus = async (id: string, status: PatientStatus) => 
   await updateDoc(patientRef, { status });
 };
 
-export const updatePatientDetails = async (id: string, details: Partial<Omit<Patient, 'id' | 'createdAt'>>) => {
+export const updatePatientDetails = async (id: string, details: Partial<Omit<PatientVisit, 'id' | 'createdAt'>>) => {
   if (!db) return;
   const patientRef = doc(db, 'queue', id);
   
   const dataToUpdate: { [key: string]: any } = { ...details };
+
+  // This logic should also update the main patient profile if name/age/phone changes
+  if (details.patientProfileId && (details.name || details.phone || details.age)) {
+      const profileRef = doc(db, 'patients', details.patientProfileId);
+      const profileUpdate: Partial<PatientProfile> = {};
+      if (details.name) profileUpdate.name = details.name;
+      if (details.phone) profileUpdate.phone = details.phone;
+      if (details.age) profileUpdate.age = details.age;
+      await updateDoc(profileRef, profileUpdate);
+  }
+
 
   Object.keys(dataToUpdate).forEach(key => {
     if (dataToUpdate[key as keyof typeof dataToUpdate] === undefined) {
@@ -107,8 +162,8 @@ export const updateClinicSettings = async (settings: Partial<ClinicSettings>) =>
   if (dataToSet.services && !Array.isArray(dataToSet.services)) {
     delete dataToSet.services;
   }
-  delete dataToSet.doctorPassword;
-  delete dataToSet.secretaryPassword;
+  // Passwords are now managed via settings, so we need to include them.
+  // The old logic `delete dataToSet.doctorPassword` is removed.
 
   await setDoc(settingsRef, dataToSet, { merge: true });
 };
@@ -195,7 +250,7 @@ export const archiveOldChatMessages = async (): Promise<number> => {
   return totalArchived;
 };
 
-export const getPatientsByDateRange = async (startDate: Date, endDate: Date): Promise<Patient[]> => {
+export const getPatientsByDateRange = async (startDate: Date, endDate: Date): Promise<PatientVisit[]> => {
   if (!db) return [];
   const startTimestamp = Timestamp.fromDate(startDate);
   const endTimestamp = Timestamp.fromDate(endDate);
@@ -210,5 +265,19 @@ export const getPatientsByDateRange = async (startDate: Date, endDate: Date): Pr
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
-  })) as Patient[];
+  })) as PatientVisit[];
+};
+
+export const getPatientHistory = async (patientProfileId: string): Promise<PatientVisit[]> => {
+    if (!db) return [];
+    const q = query(
+        collection(db, 'queue'),
+        where('patientProfileId', '==', patientProfileId),
+        orderBy('visitDate', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    })) as PatientVisit[];
 };

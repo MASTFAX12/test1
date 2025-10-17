@@ -5,7 +5,7 @@ import { Role } from '../types.ts';
 interface LoginModalProps {
   onClose: () => void;
   onLoginSuccess: (role: Role) => void;
-  settings: ClinicSettings; // Kept for other settings if needed, but not for passwords
+  settings: ClinicSettings; 
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settings }) => {
@@ -23,13 +23,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
     e.preventDefault();
     let correctPassword = '';
     
-    // Security Enhancement: Passwords are now read from environment variables,
-    // with a fallback for development environments. They are no longer
-    // read from the database settings.
     if (selectedRole === Role.Doctor) {
-      correctPassword = process.env.DOCTOR_PASSWORD || 'doctor123';
+      correctPassword = settings.doctorPassword || 'doctor123';
     } else if (selectedRole === Role.Secretary) {
-      correctPassword = process.env.SECRETARY_PASSWORD || 'sec123';
+      correctPassword = settings.secretaryPassword || 'sec123';
     }
 
     if (password === correctPassword) {

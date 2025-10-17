@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, FC } from 'react';
 import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, Bar, Line, CartesianGrid } from 'recharts';
-import type { Patient } from '../types.ts';
+import type { PatientVisit } from '../types.ts';
 import { PatientStatus } from '../types.ts';
-import { ChartBarIcon, XMarkIcon, SpinnerIcon } from './Icons.tsx';
+import { ChartBarIcon, XMarkIcon, SpinnerIcon, CurrencyDollarIcon, UserIcon } from './Icons.tsx';
 import { getPatientsByDateRange } from '../services/firebase.ts';
 
 interface StatsPanelProps {
-  patients: Patient[];
+  patients: PatientVisit[];
+  isEmbedded?: boolean;
 }
 
 type DateRange = 'today' | 'week' | 'month';
@@ -28,10 +29,10 @@ const getDateRangeBoundaries = (range: DateRange): { startDate: Date, endDate: D
 };
 
 
-const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, isEmbedded = false }) => {
+  const [isOpen, setIsOpen] = useState(isEmbedded);
   const [dateRange, setDateRange] = useState<DateRange>('today');
-  const [statsData, setStatsData] = useState<Patient[]>([]);
+  const [statsData, setStatsData] = useState<PatientVisit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -58,15 +59,15 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
     fetchData();
   }, [dateRange, todayPatients, isOpen]);
   
-  const summary = useMemo(() => {
-    return {
-      waitingCount: statsData.filter(p => p.status === PatientStatus.Waiting).length,
-      inProgressCount: statsData.filter(p => p.status === PatientStatus.InProgress).length,
-      doneCount: statsData.filter(p => p.status === PatientStatus.Done || p.status === PatientStatus.Skipped).length,
-      totalCount: statsData.length,
-      totalRevenue: statsData.reduce((acc, p) => acc + (p.amountPaid || 0), 0),
-    }
-  }, [statsData]);
+  const todaySummary = useMemo(() => {
+      const doneToday = todayPatients.filter(p => p.status === PatientStatus.Done || p.status === PatientStatus.Skipped);
+      const pendingPayment = todayPatients.filter(p => p.status === PatientStatus.PendingPayment);
+      return {
+          totalPatients: todayPatients.length,
+          totalRevenue: doneToday.reduce((acc, p) => acc + (p.amountPaid || 0), 0),
+          pendingAmount: pendingPayment.reduce((acc, p) => acc + (p.requiredAmount || 0), 0),
+      }
+  }, [todayPatients]);
 
   const chartData = useMemo(() => {
     if (statsData.length === 0) return [];
@@ -110,7 +111,10 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
     
     if(dateRange === 'today' && allDaysData.length === 0 && statsData.length > 0) {
         const todayStr = new Date().toISOString().split('T')[0];
-        allDaysData.push(aggregation[todayStr]);
+        const aggregatedToday = aggregation[todayStr];
+        if (aggregatedToday) {
+           allDaysData.push(aggregatedToday);
+        }
     }
 
     return allDaysData;
@@ -126,7 +130,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
         >
             <ChartBarIcon className="w-8 h-8"/>
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center border-2 border-white">
-                {summary.totalCount}
+                {todayPatients.length}
             </span>
         </button>
     );
@@ -145,19 +149,36 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
     return null;
   };
 
+  const containerClasses = isEmbedded 
+    ? "flex flex-col gap-4" 
+    : "bg-white/95 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-gray-200 w-[90vw] max-w-2xl animate-fade-in flex flex-col gap-4";
+
+
   return (
-    <div className="bg-white/95 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-gray-200 w-[90vw] max-w-2xl animate-fade-in flex flex-col gap-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-800">إحصائيات الأداء</h2>
-        <button onClick={() => setIsOpen(false)} className="p-2 rounded-full hover:bg-gray-200">
-            <XMarkIcon className="w-5 h-5 text-gray-600"/>
-        </button>
-      </div>
+    <div className={containerClasses}>
+       {!isEmbedded && (
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">إحصائيات الأداء</h2>
+            <button onClick={() => setIsOpen(false)} className="p-2 rounded-full hover:bg-gray-200">
+                <XMarkIcon className="w-5 h-5 text-gray-600"/>
+            </button>
+          </div>
+       )}
+
+        {/* Today's Summary */}
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-bold text-blue-800 mb-2 text-center">ملخص اليوم</h4>
+            <div className="grid grid-cols-3 gap-2">
+                <StatCard value={todaySummary.totalRevenue.toLocaleString()} label="الإيرادات" color="green" icon={<CurrencyDollarIcon className="w-5 h-5"/>} />
+                <StatCard value={todaySummary.totalPatients} label="المراجعون" color="blue" icon={<UserIcon className="w-5 h-5"/>} />
+                <StatCard value={todaySummary.pendingAmount.toLocaleString()} label="قيد الانتظار" color="yellow" icon={<SpinnerIcon className="w-5 h-5"/>} />
+            </div>
+        </div>
       
        <div className="flex justify-center bg-gray-100 p-1 rounded-lg">
           <DateButton label="اليوم" range="today" activeRange={dateRange} setRange={setDateRange} />
-          <DateButton label="هذا الأسبوع" range="week" activeRange={dateRange} setRange={setDateRange} />
-          <DateButton label="هذا الشهر" range="month" activeRange={dateRange} setRange={setDateRange} />
+          <DateButton label="الأسبوع" range="week" activeRange={dateRange} setRange={setDateRange} />
+          <DateButton label="الشهر" range="month" activeRange={dateRange} setRange={setDateRange} />
       </div>
 
       <div className="relative">
@@ -166,13 +187,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
                 <SpinnerIcon className="w-10 h-10 text-blue-600" />
             </div>
         )}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <StatCard value={summary.totalCount} label="الإجمالي" color="blue" />
-            <StatCard value={summary.waitingCount} label="انتظار" color="yellow" />
-            <StatCard value={summary.doneCount} label="مكتمل" color="green" />
-            <StatCard value={summary.totalRevenue.toLocaleString()} label="الإيرادات (د.ع)" color="purple" />
-        </div>
-        <div className="mt-6 h-64">
+        <div className="mt-2 h-48">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
@@ -193,13 +208,13 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
 const DateButton: FC<{label: string, range: DateRange, activeRange: DateRange, setRange: (r: DateRange) => void}> = ({label, range, activeRange, setRange}) => (
     <button 
         onClick={() => setRange(range)}
-        className={`w-full px-4 py-2 text-sm font-semibold rounded-md transition-colors ${activeRange === range ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}
+        className={`w-full px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${activeRange === range ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}
     >
         {label}
     </button>
 );
 
-const StatCard: FC<{value: number | string; label: string; color: 'blue' | 'yellow' | 'green' | 'purple';}> = ({ value, label, color }) => {
+const StatCard: FC<{value: number | string; label: string; color: 'blue' | 'yellow' | 'green' | 'purple'; icon?: React.ReactNode;}> = ({ value, label, color, icon }) => {
     const colors = {
         blue: 'bg-blue-100 text-blue-800',
         yellow: 'bg-yellow-100 text-yellow-800',
@@ -207,9 +222,12 @@ const StatCard: FC<{value: number | string; label: string; color: 'blue' | 'yell
         purple: 'bg-purple-100 text-purple-800',
     };
     return (
-        <div className={`${colors[color]} p-3 rounded-lg`}>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-sm font-medium">{label}</p>
+        <div className={`${colors[color]} p-2 rounded-lg text-center`}>
+            <div className="flex items-center justify-center gap-1.5">
+                {icon}
+                <p className="text-lg font-bold">{value}</p>
+            </div>
+            <p className="text-xs font-medium">{label}</p>
         </div>
     )
 }

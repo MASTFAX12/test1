@@ -8,6 +8,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        // Apply theme instantly from localStorage to prevent FOUC (Flash of Unstyled Content)
+        (function() {
+          try {
+            var themeColor = localStorage.getItem('clinic-theme-color');
+            if (themeColor) {
+              document.documentElement.style.setProperty('--theme-color', themeColor);
+            }
+          } catch (e) {
+            console.error('Failed to apply theme from localStorage', e);
+          }
+        })();
+    </script>
     <style>
         body {
             font-family: 'Tajawal', sans-serif;
@@ -48,6 +61,10 @@
         @keyframes marquee {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }
+        }
+        /* Base styles for form inputs */
+        .form-input {
+            @apply w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-500 transition-shadow duration-200;
         }
     </style>
 </head>

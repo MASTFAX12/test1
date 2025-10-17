@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { Patient } from '../types.ts';
+import type { PatientVisit } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
 
 interface EditablePatientCardProps {
-  patient: Patient;
+  patient: PatientVisit;
   onCancel: () => void;
   onSave: () => void;
   isBeingCalled?: boolean;
@@ -46,6 +46,7 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
     setIsSaving(true);
     try {
       await updatePatientDetails(patient.id, { 
+          patientProfileId: patient.patientProfileId, // Pass profile ID for potential updates
           name, 
           phone, 
           reason,

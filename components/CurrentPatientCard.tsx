@@ -1,13 +1,13 @@
 
 
 import React from 'react';
-import type { Patient } from '../types.ts';
+import type { PatientVisit } from '../types.ts';
 import { PatientStatus } from '../types.ts';
 import { UserIcon } from './Icons.tsx';
 
 interface CurrentPatientCardProps {
-  patient: Patient | undefined; // The patient with 'inprogress' status
-  callingPatient: Patient | null; // The patient being actively called
+  patient: PatientVisit | undefined; // The patient with 'inprogress' status
+  callingPatient: PatientVisit | null; // The patient being actively called
   title: string;
   noPatientText: string;
   callingTitle: string;

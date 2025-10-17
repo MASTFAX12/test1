@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import type { Patient } from '../types.ts';
+import type { PatientVisit } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
 import { CurrencyDollarIcon } from './Icons.tsx';
 
 interface PaymentInputCardProps {
-  patient: Patient;
+  patient: PatientVisit;
   onCancel: () => void;
   onSave: (patientId: string) => void;
 }

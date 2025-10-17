@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import type { Patient, Service } from '../types.ts';
+import type { PatientVisit, Service } from '../types.ts';
 import { XMarkIcon } from './Icons.tsx';
 
 interface ServiceSelectionModalProps {
-  patient: Patient;
+  patient: PatientVisit;
   availableServices: Service[];
   onClose: () => void;
-  onSave: (patient: Patient, selectedServices: Service[]) => void;
+  onSave: (patient: PatientVisit, selectedServices: Service[]) => void;
 }
 
 const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ patient, availableServices, onClose, onSave }) => {

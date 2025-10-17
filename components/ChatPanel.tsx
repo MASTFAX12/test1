@@ -9,10 +9,11 @@ import { toast } from 'react-hot-toast';
 
 interface ChatPanelProps {
   role: Role;
+  isEmbedded?: boolean;
 }
 
-const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const ChatPanel: React.FC<ChatPanelProps> = ({ role, isEmbedded = false }) => {
+  const [isOpen, setIsOpen] = useState(isEmbedded);
   const { messages, loading, error } = useChat();
   const [newMessage, setNewMessage] = useState('');
   const [hasUnread, setHasUnread] = useState(false);
@@ -128,24 +129,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
     );
   }
 
+  const containerClasses = isEmbedded
+    ? "flex flex-col h-[60vh] max-h-[420px]"
+    : "bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 flex flex-col h-[70vh] max-h-[500px] w-[90vw] max-w-sm animate-fade-in";
+
+
   return (
-    <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 flex flex-col h-[70vh] max-h-[500px] w-[90vw] max-w-sm animate-fade-in">
-      <header className="flex justify-between items-center p-4 border-b flex-shrink-0">
-        <h2 className="text-xl font-bold text-gray-800">الدردشة الداخلية</h2>
-         <div className="flex items-center gap-2">
-            <button
-                onClick={handleArchiveMessages}
-                disabled={isArchiving}
-                className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="أرشفة الرسائل القديمة (أقدم من 24 ساعة)"
-            >
-                {isArchiving ? <SpinnerIcon className="w-5 h-5 text-gray-600" /> : <ArchiveBoxIcon className="w-5 h-5 text-gray-600"/>}
-            </button>
-            <button onClick={() => setIsOpen(false)} className="p-2 rounded-full hover:bg-gray-200">
-                <XMarkIcon className="w-5 h-5 text-gray-600"/>
-            </button>
-        </div>
-      </header>
+    <div className={containerClasses}>
+      {!isEmbedded && (
+        <header className="flex justify-between items-center p-4 border-b flex-shrink-0">
+            <h2 className="text-xl font-bold text-gray-800">الدردشة الداخلية</h2>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={handleArchiveMessages}
+                    disabled={isArchiving}
+                    className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="أرشفة الرسائل القديمة (أقدم من 24 ساعة)"
+                >
+                    {isArchiving ? <SpinnerIcon className="w-5 h-5 text-gray-600" /> : <ArchiveBoxIcon className="w-5 h-5 text-gray-600"/>}
+                </button>
+                <button onClick={() => setIsOpen(false)} className="p-2 rounded-full hover:bg-gray-200">
+                    <XMarkIcon className="w-5 h-5 text-gray-600"/>
+                </button>
+            </div>
+        </header>
+      )}
       <div className="flex-grow p-4 overflow-y-auto bg-gray-50/50">
         {loading && <p className="text-center text-gray-500 pt-10">جاري تحميل الرسائل...</p>}
         {error && <p className="text-center text-red-500 pt-10">حدث خطأ.</p>}

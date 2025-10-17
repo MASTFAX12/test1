@@ -1,6 +1,6 @@
 import React, { useState, useMemo, FC, DragEvent, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
-import type { PatientVisit, Service } from '../types.ts';
+import type { PatientVisit, Service, CustomLineItem } from '../types.ts';
 import { PatientStatus, Role } from '../types.ts';
 import {
   BellIcon,
@@ -31,7 +31,7 @@ interface PatientQueueListProps {
   onReorder: (patientId: string, newTimestamp: Timestamp) => void;
   callingPatient: PatientVisit | null;
   availableServices: Service[];
-  onSetPatientServices: (patient: PatientVisit, services: Service[]) => void;
+  onSetPatientServices: (patient: PatientVisit, services: Service[], customItems: CustomLineItem[]) => void;
 }
 
 interface PatientCardProps {
@@ -102,6 +102,9 @@ const PatientCard: FC<PatientCardProps> = ({
     isNextToPay ? 'border-yellow-400 ring-2 ring-yellow-400' : ''
   ].join(' ');
 
+  const actionButtonClasses = "w-8 h-8 flex items-center justify-center rounded-full text-white transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed";
+
+
   return (
     <div 
       className={cardClasses}
@@ -138,10 +141,9 @@ const PatientCard: FC<PatientCardProps> = ({
       </div>
 
       <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2 justify-end items-center">
-        <div className="flex flex-wrap gap-2 justify-end">
           {/* Actions for All Roles */}
           {patient.patientProfileId && (
-            <button title="عرض سجل المراجع" onClick={onShowHistory} className="action-btn bg-gray-500 hover:bg-gray-600"><ArchiveBoxIcon className="w-4 h-4" /></button>
+            <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArchiveBoxIcon className="w-5 h-5" /></button>
           )}
 
           {/* Actions for Secretary */}
@@ -149,38 +151,37 @@ const PatientCard: FC<PatientCardProps> = ({
             <>
               {isWaiting && (
                 <>
-                  <button title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className="action-btn bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400"><BellIcon className="w-4 h-4" /></button>
-                  <button title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className={`${actionButtonClasses} bg-blue-500 hover:bg-blue-600`}><BellIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
                 </>
               )}
               {patient.status === PatientStatus.PendingPayment && (
-                <button title="تسجيل دفعة" onClick={onSetPayment} className="action-btn bg-yellow-500 hover:bg-yellow-600"><CurrencyDollarIcon className="w-4 h-4" /></button>
+                <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={`${actionButtonClasses} bg-yellow-500 hover:bg-yellow-600`}><CurrencyDollarIcon className="w-5 h-5" /></button>
               )}
               {patient.status === PatientStatus.InProgress && (
-                  <button title="إرجاع للانتظار" onClick={() => onReturnToWaiting(patient.id)} className="action-btn bg-gray-500 hover:bg-gray-600"><ArrowUturnLeftIcon className="w-4 h-4"/></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onReturnToWaiting(patient.id)} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
               )}
-               <button title="تعديل" onClick={onEdit} disabled={isBeingCalled} className="action-btn bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed"><PencilIcon className="w-4 h-4" /></button>
-               {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && <button title="إلغاء الموعد" onClick={() => onCancel(patient.id)} className="action-btn bg-red-500 hover:bg-red-600"><TrashIcon className="w-4 h-4" /></button>}
+               <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><PencilIcon className="w-5 h-5" /></button>
+               {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && <button onMouseDown={(e) => e.stopPropagation()} title="إلغاء الموعد" onClick={() => onCancel(patient.id)} className={`${actionButtonClasses} bg-red-500 hover:bg-red-600`}><TrashIcon className="w-5 h-5" /></button>}
             </>
           )}
           {/* Actions for Doctor */}
           {role === Role.Doctor && (
             <>
               {isWaiting && (
-                <button title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+                <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
               )}
               {patient.status === PatientStatus.InProgress && (
                 <>
-                  <button title="تحديد الخدمات والرسوم" onClick={onSetServices} className="action-btn bg-blue-500 hover:bg-blue-600"><Cog8ToothIcon className="w-4 h-4" /></button>
-                  <button title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="تحديد الخدمات والرسوم" onClick={onSetServices} className={`${actionButtonClasses} bg-blue-500 hover:bg-blue-600`}><Cog8ToothIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
                 </>
               )}
                {patient.status !== PatientStatus.InProgress && patient.status !== PatientStatus.Waiting && (
-                   <button title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className="action-btn bg-gray-500 hover:bg-gray-600"><ArrowUturnLeftIcon className="w-4 h-4"/></button>
+                   <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                )}
             </>
           )}
-        </div>
       </div>
     </div>
   );
@@ -330,9 +331,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     } else if (targetStatus === PatientStatus.Waiting) {
         onUpdateStatus(draggedPatient.id, PatientStatus.Waiting);
     } else if (targetStatus === PatientStatus.Cancelled) {
-        if (window.confirm(`هل أنت متأكد من إلغاء مراجعة "${draggedPatient.name}"؟`)) {
-            onCancel(draggedPatient.id);
-        }
+        onCancel(draggedPatient.id);
     }
   };
 
@@ -434,7 +433,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       </div>
       
       {serviceSelectionPatient && role === Role.Doctor && (
-        <ServiceSelectionModal patient={serviceSelectionPatient} availableServices={availableServices} onClose={() => setServiceSelectionPatient(null)} onSave={(p, services) => { onSetPatientServices(p, services); setServiceSelectionPatient(null); }} />
+        <ServiceSelectionModal patient={serviceSelectionPatient} availableServices={availableServices} onClose={() => setServiceSelectionPatient(null)} onSave={(p, services, customItems) => { onSetPatientServices(p, services, customItems); setServiceSelectionPatient(null); }} />
       )}
       {historyPatient && (
         <PatientHistoryModal patientProfileId={historyPatient.patientProfileId} patientName={historyPatient.name} currentVisitId={historyPatient.id} onClose={() => setHistoryPatient(null)} />

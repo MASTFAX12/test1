@@ -59,12 +59,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role, isEmbedded = false }) => {
   
   const handleDeleteMessage = async (messageId: string) => {
     if (window.confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
+        const toastId = toast.loading('جاري حذف الرسالة...');
         try {
             await deleteChatMessage(messageId);
-            toast.success('تم حذف الرسالة.');
+            toast.success('تم حذف الرسالة.', { id: toastId });
         } catch (err) {
             console.error('Failed to delete message:', err);
-            toast.error('فشل حذف الرسالة.');
+            toast.error('فشل حذف الرسالة.', { id: toastId });
         }
     }
   };

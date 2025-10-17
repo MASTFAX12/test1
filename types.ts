@@ -25,6 +25,11 @@ export interface PatientProfile {
   firstVisit: Timestamp;
 }
 
+export interface CustomLineItem {
+  id: string;
+  description: string;
+  price: number;
+}
 
 // Represents a single visit in the 'queue' collection
 export interface PatientVisit {
@@ -37,6 +42,7 @@ export interface PatientVisit {
   amountPaid: number | null;
   requiredAmount: number | null;
   servicesRendered: Service[] | null;
+  customLineItems: CustomLineItem[] | null;
   showDetailsToPublic: boolean;
   status: PatientStatus;
   createdAt: Timestamp; // Used for ordering in the queue

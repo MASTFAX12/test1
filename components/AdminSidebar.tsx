@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PlusIcon, ChartBarIcon, ChatBubbleOvalLeftEllipsisIcon, SpinnerIcon } from './Icons.tsx';
 import StatsPanel from './StatsPanel.tsx';
@@ -63,7 +62,7 @@ const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) =
     }
   };
 
-  const formInputClasses = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
+  const formInputClasses = "mt-1 block w-full px-3 py-2 bg-white text-gray-900 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm";
 
   return (
     <div className="animate-fade-in">
@@ -79,34 +78,35 @@ const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) =
             className={formInputClasses}
             required
             autoFocus
+            placeholder="مثال: أحمد محمد"
           />
         </div>
         
         {settings.showAgeField && (
             <div>
                 <label htmlFor="age" className="block text-sm font-medium text-gray-700">العمر</label>
-                <input type="text" inputMode="numeric" id="age" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className={formInputClasses}/>
+                <input type="text" inputMode="numeric" id="age" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className={formInputClasses} placeholder="مثال: 35"/>
             </div>
         )}
 
         {settings.showPhoneField && (
             <div>
                 <label htmlFor="phone" className="block text-sm font-medium text-gray-700">رقم الهاتف</label>
-                <input type="tel" id="phone" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className={formInputClasses}/>
+                <input type="tel" id="phone" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className={formInputClasses} placeholder="مثال: 07701234567"/>
             </div>
         )}
         
         {settings.showReasonField && (
             <div>
                 <label htmlFor="reason" className="block text-sm font-medium text-gray-700">سبب الزيارة</label>
-                <input type="text" id="reason" value={reason} onChange={(e) => setReason(e.target.value)} className={formInputClasses}/>
+                <input type="text" id="reason" value={reason} onChange={(e) => setReason(e.target.value)} className={formInputClasses} placeholder="مثال: مراجعة عامة"/>
             </div>
         )}
         
         {settings.showAmountPaidField && (
              <div>
                 <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700">الدفعة الأولية</label>
-                <input type="text" inputMode="decimal" id="amountPaid" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={formInputClasses}/>
+                <input type="text" inputMode="decimal" id="amountPaid" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={formInputClasses} placeholder="مثال: 10000"/>
             </div>
         )}
         

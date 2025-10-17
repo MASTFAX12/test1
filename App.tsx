@@ -5,7 +5,7 @@ import { useQueue } from './hooks/useQueue.ts';
 import { useSettings } from './hooks/useSettings.ts';
 import { usePrevious } from './hooks/usePrevious.ts';
 import { Role, PatientStatus } from './types.ts';
-import type { PatientVisit, Service } from './types.ts';
+import type { PatientVisit, Service, CustomLineItem } from './types.ts';
 import { 
   updatePatientStatus, 
   cancelPatient, 
@@ -104,11 +104,12 @@ function App() {
 
   const handleCancel = async (id: string) => {
     if (window.confirm('هل أنت متأكد من إلغاء هذا الموعد؟ سيتم نقله إلى الأرشيف.')) {
+        const toastId = toast.loading('جاري إلغاء الموعد...');
         try {
             await cancelPatient(id);
-            toast.success('تم إلغاء الموعد.');
+            toast.success('تم إلغاء الموعد.', { id: toastId });
         } catch (error) {
-            toast.error('فشل إلغاء الموعد.');
+            toast.error('فشل إلغاء الموعد.', { id: toastId });
             console.error(error);
         }
     }
@@ -123,13 +124,17 @@ function App() {
     }
   };
   
-  const handleSetServices = async (patient: PatientVisit, services: Service[]) => {
-      const requiredAmount = services.reduce((acc, s) => acc + s.price, 0);
+  const handleSetServices = async (patient: PatientVisit, services: Service[], customItems: CustomLineItem[]) => {
+      const servicesTotal = services.reduce((acc, s) => acc + s.price, 0);
+      const customItemsTotal = customItems.reduce((acc, i) => acc + i.price, 0);
+      const requiredAmount = servicesTotal + customItemsTotal;
+      
       try {
           await updatePatientDetails(patient.id, {
               servicesRendered: services,
+              customLineItems: customItems,
               requiredAmount: requiredAmount,
-              sentToPaymentAt: Timestamp.now() // Set timestamp when sent to payment
+              sentToPaymentAt: Timestamp.now()
           });
           await updatePatientStatus(patient.id, PatientStatus.PendingPayment);
           toast.success(`تم تحديد رسوم ${patient.name} وإرسالها للسكرتير.`);

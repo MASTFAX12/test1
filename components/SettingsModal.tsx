@@ -71,7 +71,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
   };
 
   const removeService = (id: string) => {
-    setLocalSettings(prev => ({ ...prev, services: prev.services.filter(s => s.id !== id) }));
+    if (window.confirm('هل أنت متأكد من حذف هذه الخدمة؟ لا يمكن التراجع عن هذا الإجراء.')) {
+      setLocalSettings(prev => ({ ...prev, services: prev.services.filter(s => s.id !== id) }));
+      toast.success('تمت إزالة الخدمة. اضغط "حفظ" لتأكيد التغييرات.');
+    }
   };
 
   const handleSave = async () => {

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { PatientVisit } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
@@ -63,31 +62,33 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
       setIsSaving(false);
     }
   };
+  
+  const inputClasses = "w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900";
 
   return (
     <div className={`bg-blue-50 border-2 border-blue-400 rounded-xl p-4 mb-3 shadow-lg animate-fade-in ${isBeingCalled ? 'ring-4 ring-offset-2 ring-blue-500 animate-pulse' : ''}`}>
       <form onSubmit={handleSave} className="space-y-3">
         <div className="space-y-2">
             <label className="text-xs font-bold text-gray-600">الاسم</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" required autoFocus />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClasses} required autoFocus />
         </div>
          <div className="grid grid-cols-2 gap-3">
             <div>
                  <label className="text-xs font-bold text-gray-600">العمر</label>
-                 <input type="text" inputMode="numeric" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                 <input type="text" inputMode="numeric" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className={inputClasses} />
             </div>
             <div>
                  <label className="text-xs font-bold text-gray-600">المبلغ</label>
-                 <input type="text" inputMode="decimal" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+                 <input type="text" inputMode="decimal" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={inputClasses} />
             </div>
         </div>
         <div>
           <label className="text-xs font-bold text-gray-600">الهاتف</label>
-          <input type="tel" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+          <input type="tel" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className={inputClasses} />
         </div>
         <div>
           <label className="text-xs font-bold text-gray-600">السبب</label>
-          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className={inputClasses} />
         </div>
          <div>
           <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer text-sm">

@@ -67,16 +67,34 @@ const PatientHistoryModal: FC<PatientHistoryModalProps> = ({ patientProfileId, p
                         </p>
                         <span className="text-sm font-semibold text-gray-600">{visit.reason || 'زيارة عامة'}</span>
                       </div>
-                      {visit.servicesRendered && visit.servicesRendered.length > 0 && (
-                        <div className="mb-2 pl-4 border-r-2 border-blue-200">
-                          <h4 className="text-xs font-semibold text-gray-500">الخدمات:</h4>
-                          <ul className="list-disc list-inside text-sm text-gray-600">
-                            {visit.servicesRendered.map(service => (
-                              <li key={service.id}>{service.name} - {service.price.toLocaleString()} د.ع</li>
-                            ))}
-                          </ul>
+                      
+                      {(visit.servicesRendered && visit.servicesRendered.length > 0) || (visit.customLineItems && visit.customLineItems.length > 0) ? (
+                        <div className="mb-2 pl-4 border-r-2 border-blue-200 space-y-2">
+                           {visit.servicesRendered && visit.servicesRendered.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-semibold text-gray-500">الخدمات:</h4>
+                              <ul className="list-disc list-inside text-sm text-gray-600">
+                                {visit.servicesRendered.map(service => (
+                                  <li key={service.id}>{service.name} - {service.price.toLocaleString()} د.ع</li>
+                                ))}
+                              </ul>
+                            </div>
+                           )}
+                           {visit.customLineItems && visit.customLineItems.length > 0 && (
+                            <div>
+                               <h4 className="text-xs font-semibold text-gray-500">بنود إضافية/خصومات:</h4>
+                               <ul className="list-disc list-inside text-sm text-gray-600">
+                                {visit.customLineItems.map((item, index) => (
+                                    <li key={index} className={item.price < 0 ? 'text-red-600' : ''}>
+                                        {item.description} - {item.price.toLocaleString()} د.ع
+                                    </li>
+                                ))}
+                               </ul>
+                            </div>
+                           )}
                         </div>
-                      )}
+                      ) : null}
+
                       <div className="flex justify-end gap-6 text-sm pt-2 border-t mt-2">
                           <div>
                               <span className="font-semibold text-gray-500">المبلغ المطلوب: </span>

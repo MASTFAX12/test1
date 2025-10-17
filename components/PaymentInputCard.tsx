@@ -51,7 +51,7 @@ const PaymentInputCard: React.FC<PaymentInputCardProps> = ({ patient, onCancel, 
                 step="any"
                 value={amount} 
                 onChange={(e) => setAmount(e.target.value)} 
-                className="w-full mt-1 px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm" 
+                className="w-full mt-1 px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm text-gray-900" 
                 required 
                 autoFocus 
                 placeholder="مثال: 25000"

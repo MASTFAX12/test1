@@ -9,6 +9,7 @@ import type { PatientVisit, Service, CustomLineItem } from './types.ts';
 import { 
   updatePatientStatus, 
   cancelPatient, 
+  deletePatientVisit,
   updatePatientDetails, 
   uploadProfilePicture, 
   updateClinicSettings, 
@@ -103,15 +104,26 @@ function App() {
   };
 
   const handleCancel = async (id: string) => {
-    if (window.confirm('هل أنت متأكد من إلغاء هذا الموعد؟ سيتم نقله إلى الأرشيف.')) {
-        const toastId = toast.loading('جاري إلغاء الموعد...');
-        try {
-            await cancelPatient(id);
-            toast.success('تم إلغاء الموعد.', { id: toastId });
-        } catch (error) {
-            toast.error('فشل إلغاء الموعد.', { id: toastId });
-            console.error(error);
-        }
+    // Confirmation is now handled by ConfirmationModal
+    const toastId = toast.loading('جاري الأرشفة...');
+    try {
+        await cancelPatient(id);
+        toast.success('تمت أرشفة المراجع.', { id: toastId });
+    } catch (error) {
+        toast.error('فشلت الأرشفة.', { id: toastId });
+        console.error(error);
+    }
+  };
+
+  const handleDeletePatient = async (id: string) => {
+    // Confirmation is now handled by ConfirmationModal
+    const toastId = toast.loading('جاري الحذف النهائي...');
+    try {
+        await deletePatientVisit(id);
+        toast.success('تم حذف المراجع نهائياً.', { id: toastId });
+    } catch (error) {
+        toast.error('فشل حذف المراجع.', { id: toastId });
+        console.error(error);
     }
   };
   
@@ -259,6 +271,7 @@ function App() {
                 role={role}
                 onUpdateStatus={handleUpdateStatus}
                 onCancel={handleCancel}
+                onDeletePatient={handleDeletePatient}
                 onCall={handleCallPatient}
                 onReorder={handleReorder}
                 callingPatient={callingPatient}

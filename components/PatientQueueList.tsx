@@ -21,12 +21,14 @@ import ServiceSelectionModal from './ServiceSelectionModal.tsx';
 import { toast } from 'react-hot-toast';
 import PatientHistoryModal from './PatientHistoryModal.tsx';
 import { usePrevious } from '../hooks/usePrevious.ts';
+import ConfirmationModal from './ConfirmationModal.tsx';
 
 interface PatientQueueListProps {
   patients: PatientVisit[];
   role: Role;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
   onCancel: (id: string) => void;
+  onDeletePatient: (id: string) => void;
   onCall: (patient: PatientVisit) => void;
   onReorder: (patientId: string, newTimestamp: Timestamp) => void;
   callingPatient: PatientVisit | null;
@@ -41,6 +43,7 @@ interface PatientCardProps {
   onUpdateStatus: (id: string, status: PatientStatus) => void;
   onSetInProgress: (id: string) => void;
   onCancel: (id: string) => void;
+  onDeleteClick: (patient: PatientVisit) => void;
   onCall: (patient: PatientVisit) => void;
   onEdit: () => void;
   onSetPayment: () => void;
@@ -66,6 +69,7 @@ const PatientCard: FC<PatientCardProps> = ({
   onUpdateStatus,
   onSetInProgress,
   onCancel,
+  onDeleteClick,
   onCall,
   onEdit,
   onSetPayment,
@@ -143,10 +147,10 @@ const PatientCard: FC<PatientCardProps> = ({
       <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2 justify-end items-center">
           {/* Actions for All Roles */}
           {patient.patientProfileId && (
-            <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArchiveBoxIcon className="w-5 h-5" /></button>
+            <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={`${actionButtonClasses} bg-indigo-500 hover:bg-indigo-600`}><ArchiveBoxIcon className="w-5 h-5" /></button>
           )}
 
-          {/* Actions for Secretary */}
+          {/* SECRETARY ACTIONS */}
           {role === Role.Secretary && (
             <>
               {isWaiting && (
@@ -158,14 +162,17 @@ const PatientCard: FC<PatientCardProps> = ({
               {patient.status === PatientStatus.PendingPayment && (
                 <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={`${actionButtonClasses} bg-yellow-500 hover:bg-yellow-600`}><CurrencyDollarIcon className="w-5 h-5" /></button>
               )}
-              {patient.status === PatientStatus.InProgress && (
-                  <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onReturnToWaiting(patient.id)} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
-              )}
-               <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><PencilIcon className="w-5 h-5" /></button>
-               {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && <button onMouseDown={(e) => e.stopPropagation()} title="إلغاء الموعد" onClick={() => onCancel(patient.id)} className={`${actionButtonClasses} bg-red-500 hover:bg-red-600`}><TrashIcon className="w-5 h-5" /></button>}
+              
+               {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && (
+                 <>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><PencilIcon className="w-5 h-5" /></button>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="أرشفة أو حذف" onClick={() => onDeleteClick(patient)} className={`${actionButtonClasses} bg-red-600 hover:bg-red-700`}><TrashIcon className="w-5 h-5" /></button>
+                 </>
+               )}
             </>
           )}
-          {/* Actions for Doctor */}
+
+          {/* DOCTOR ACTIONS */}
           {role === Role.Doctor && (
             <>
               {isWaiting && (
@@ -177,7 +184,8 @@ const PatientCard: FC<PatientCardProps> = ({
                   <button onMouseDown={(e) => e.stopPropagation()} title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
                 </>
               )}
-               {patient.status !== PatientStatus.InProgress && patient.status !== PatientStatus.Waiting && (
+              {/* Allow doctor to return patient to waiting from any non-waiting state for flexibility */}
+               {patient.status !== PatientStatus.Waiting && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && (
                    <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                )}
             </>
@@ -218,6 +226,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   role,
   onUpdateStatus,
   onCancel,
+  onDeletePatient,
   onCall,
   onReorder,
   callingPatient,
@@ -228,6 +237,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [paymentPatientId, setPaymentPatientId] = useState<string | null>(null);
   const [serviceSelectionPatient, setServiceSelectionPatient] = useState<PatientVisit | null>(null);
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
+  const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedPatient, setDraggedPatient] = useState<PatientVisit | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<PatientStatus | null>(null);
@@ -380,6 +390,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onUpdateStatus={onUpdateStatus}
         onSetInProgress={handleSetInProgress}
         onCancel={onCancel}
+        onDeleteClick={setPatientToAction}
         onCall={onCall}
         onEdit={() => setEditingPatientId(patient.id)}
         onSetPayment={() => setPaymentPatientId(patient.id)}
@@ -437,6 +448,21 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       )}
       {historyPatient && (
         <PatientHistoryModal patientProfileId={historyPatient.patientProfileId} patientName={historyPatient.name} currentVisitId={historyPatient.id} onClose={() => setHistoryPatient(null)} />
+      )}
+      {patientToAction && (
+        <ConfirmationModal
+          title="تأكيد الإجراء"
+          message={`ماذا تريد أن تفعل بالراجع "${patientToAction.name}"؟`}
+          onClose={() => setPatientToAction(null)}
+          onConfirmDelete={() => {
+            onDeletePatient(patientToAction.id);
+            setPatientToAction(null);
+          }}
+          onConfirmArchive={() => {
+            onCancel(patientToAction.id);
+            setPatientToAction(null);
+          }}
+        />
       )}
     </>
   );

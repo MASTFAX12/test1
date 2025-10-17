@@ -101,6 +101,7 @@ export const addPatientVisit = async (patientData: {
         amountPaid: amountPaid ?? null,
         requiredAmount: null,
         servicesRendered: null,
+        customLineItems: null,
         showDetailsToPublic: showDetailsToPublic || false,
         status: 'waiting',
         createdAt: Timestamp.now(), // For queue order
@@ -147,6 +148,12 @@ export const cancelPatient = async (id: string) => {
   if (!db) return;
   const patientRef = doc(db, 'queue', id);
   await updateDoc(patientRef, { status: 'cancelled' });
+};
+
+export const deletePatientVisit = async (id: string) => {
+  if (!db) return;
+  const patientRef = doc(db, 'queue', id);
+  await deleteDoc(patientRef);
 };
 
 export const reorderPatientQueue = async (patientId: string, newTimestamp: Timestamp) => {
@@ -272,12 +279,18 @@ export const getPatientHistory = async (patientProfileId: string): Promise<Patie
     if (!db) return [];
     const q = query(
         collection(db, 'queue'),
-        where('patientProfileId', '==', patientProfileId),
-        orderBy('visitDate', 'desc')
+        where('patientProfileId', '==', patientProfileId)
+        // The orderBy('visitDate', 'desc') clause was removed to avoid needing a composite index.
+        // Sorting is now handled on the client-side after fetching the data.
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const visits = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
     })) as PatientVisit[];
+
+    // Sort visits by date in descending order (newest first)
+    visits.sort((a, b) => b.visitDate.toMillis() - a.visitDate.toMillis());
+
+    return visits;
 };

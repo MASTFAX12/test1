@@ -131,9 +131,14 @@ const AddPatientPanel: React.FC<{ settings: ClinicSettings }> = ({ settings }) =
 
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ settings, patients, role }) => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('add');
-  
   const isSecretary = role === Role.Secretary;
+  const initialTab = isSecretary ? 'add' : 'stats';
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  
+  // If the role changes (which shouldn't happen often), reset the tab
+  React.useEffect(() => {
+    setActiveTab(initialTab);
+  }, [isSecretary, initialTab]);
 
   return (
     <aside className="lg:w-96 flex-shrink-0 space-y-6 lg:sticky top-28 self-start">

@@ -43,6 +43,8 @@ export interface ClinicSettings {
   publicMessage: string;
   doctorPassword?: string;
   secretaryPassword?: string;
+  doctorProfilePicUrl?: string;
+  secretaryProfilePicUrl?: string;
   themeColor: string;
   callSoundEnabled: boolean;
   services: Service[];
@@ -57,7 +59,8 @@ export interface ClinicSettings {
 
 export interface ChatMessage {
   id: string;
-  text: string;
+  text?: string;
+  imageUrl?: string;
   sender: Role;
   createdAt: Timestamp;
 }

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { updateClinicSettings } from '../services/firebase.ts';
-import type { ClinicSettings, Service } from '../types.ts';
-import { XMarkIcon, PaintBrushIcon, TrashIcon, PlusIcon } from './Icons.tsx';
-import { v4 as uuidv4 } from 'uuid';
 
+import React, { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import type { ClinicSettings, Service } from '../types.ts';
+import { XMarkIcon, TrashIcon, PlusIcon, SpinnerIcon, LockClosedIcon } from './Icons.tsx';
+import { updateClinicSettings } from '../services/firebase.ts';
+import { toast } from 'react-hot-toast';
 
 interface SettingsModalProps {
   settings: ClinicSettings;
@@ -11,172 +12,184 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
-  const [formData, setFormData] = useState<ClinicSettings>(settings);
+  const [localSettings, setLocalSettings] = useState<ClinicSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  
-  // Service management state
-  const [newServiceName, setNewServiceName] = useState('');
-  const [newServicePrice, setNewServicePrice] = useState('');
+  const [activeTab, setActiveTab] = useState('general');
 
   useEffect(() => {
-    // Ensure services is always an array
-    setFormData({ ...settings, services: settings.services || [] });
+    setLocalSettings(settings);
   }, [settings]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-        const { checked } = e.target as HTMLInputElement;
-        setFormData(prev => ({ ...prev, [name]: checked }));
+    if (type === 'checkbox' && e.target instanceof HTMLInputElement) {
+        setLocalSettings(prev => ({ ...prev, [name]: e.target.checked }));
     } else {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setLocalSettings(prev => ({ ...prev, [name]: value }));
     }
   };
   
-  const handleServiceChange = (id: string, field: 'name' | 'price', value: string) => {
-      const updatedServices = formData.services.map(service => {
-          if (service.id === id) {
-              return { ...service, [field]: field === 'price' ? parseFloat(value) || 0 : value };
-          }
-          return service;
-      });
-      setFormData(prev => ({ ...prev, services: updatedServices }));
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setLocalSettings(prev => ({ ...prev, [name]: value === '' ? 0 : parseInt(value, 10) }));
+  }
+
+  const handleServiceChange = (id: string, field: keyof Service, value: string | number) => {
+    const updatedServices = localSettings.services.map(s => 
+      s.id === id ? { ...s, [field]: value } : s
+    );
+    setLocalSettings(prev => ({ ...prev, services: updatedServices }));
   };
 
-  const handleAddService = () => {
-    if (newServiceName && newServicePrice) {
-        const newService: Service = {
-            id: uuidv4(),
-            name: newServiceName,
-            price: parseFloat(newServicePrice)
-        };
-        setFormData(prev => ({...prev, services: [...prev.services, newService]}));
-        setNewServiceName('');
-        setNewServicePrice('');
-    }
+  const addService = () => {
+    const newService: Service = { id: uuidv4(), name: 'خدمة جديدة', price: 0 };
+    setLocalSettings(prev => ({ ...prev, services: [...prev.services, newService] }));
   };
 
-  const handleDeleteService = (id: string) => {
-      const updatedServices = formData.services.filter(s => s.id !== id);
-      setFormData(prev => ({ ...prev, services: updatedServices }));
+  const removeService = (id: string) => {
+    setLocalSettings(prev => ({ ...prev, services: prev.services.filter(s => s.id !== id) }));
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     setIsSaving(true);
-    setMessage('');
+    const savingToast = toast.loading("جاري حفظ الإعدادات...");
     try {
-      const settingsToUpdate: Partial<ClinicSettings> = { ...formData };
-      if (!formData.doctorPassword) delete settingsToUpdate.doctorPassword;
-      if (!formData.secretaryPassword) delete settingsToUpdate.secretaryPassword;
-
-      await updateClinicSettings(settingsToUpdate);
-      setMessage('تم حفظ الإعدادات بنجاح!');
-      setTimeout(() => {
-        setMessage('');
-      }, 2000);
+      await updateClinicSettings(localSettings);
+      toast.success("تم حفظ الإعدادات بنجاح!", { id: savingToast });
+      onClose();
     } catch (error) {
       console.error("Failed to save settings:", error);
-      setMessage('حدث خطأ أثناء حفظ الإعدادات.');
+      toast.error("فشل حفظ الإعدادات.", { id: savingToast });
     } finally {
       setIsSaving(false);
     }
   };
   
+  const renderTabContent = () => {
+      switch (activeTab) {
+          case 'general': return (
+              <div className="space-y-4">
+                  <Input name="clinicName" label="اسم العيادة" value={localSettings.clinicName} onChange={handleChange} />
+                  <Input name="doctorName" label="اسم الطبيب" value={localSettings.doctorName} onChange={handleChange} />
+                  <Input name="clinicSpecialty" label="تخصص العيادة" value={localSettings.clinicSpecialty} onChange={handleChange} />
+                  <TextArea name="publicMessage" label="رسالة الشاشة العامة" value={localSettings.publicMessage} onChange={handleChange} />
+              </div>
+          );
+          case 'appearance': return (
+              <div className="space-y-4">
+                  <Input name="themeColor" label="اللون الأساسي" type="color" value={localSettings.themeColor} onChange={handleChange} className="p-1 h-10" />
+                  <Input name="marqueeSpeed" label="سرعة الشريط الإخباري (ثواني)" type="number" value={localSettings.marqueeSpeed.toString()} onChange={handleNumberChange} />
+                  <Checkbox name="callSoundEnabled" label="تفعيل صوت النداء" checked={localSettings.callSoundEnabled} onChange={handleChange} />
+              </div>
+          );
+          case 'fields': return (
+              <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-700">حقول استمارة إضافة مراجع:</h3>
+                  <Checkbox name="showAgeField" label="إظهار حقل العمر" checked={localSettings.showAgeField} onChange={handleChange} />
+                  <Checkbox name="showPhoneField" label="إظهار حقل الهاتف" checked={localSettings.showPhoneField} onChange={handleChange} />
+                  <Checkbox name="showReasonField" label="إظهار حقل سبب الزيارة" checked={localSettings.showReasonField} onChange={handleChange} />
+                  <Checkbox name="showAmountPaidField" label="إظهار حقل الدفعة الأولية" checked={localSettings.showAmountPaidField} onChange={handleChange} />
+              </div>
+          );
+          case 'services': return (
+              <div>
+                  <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-semibold text-gray-700">الخدمات والأسعار</h3>
+                      <button onClick={addService} className="flex items-center gap-1 bg-blue-500 text-white text-sm font-bold py-1 px-3 rounded-md hover:bg-blue-600 transition"><PlusIcon className="w-4 h-4" /> إضافة</button>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                      {localSettings.services.map(service => (
+                          <div key={service.id} className="flex items-center gap-2 bg-gray-100 p-2 rounded-md">
+                              <input type="text" value={service.name} onChange={e => handleServiceChange(service.id, 'name', e.target.value)} placeholder="اسم الخدمة" className="form-input flex-grow" />
+                              <input type="number" value={service.price} onChange={e => handleServiceChange(service.id, 'price', parseInt(e.target.value, 10) || 0)} placeholder="السعر" className="form-input w-28" />
+                              <button onClick={() => removeService(service.id)} className="p-2 text-red-500 hover:text-red-700"><TrashIcon className="w-4 h-4"/></button>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          );
+          case 'security': return (
+              <div className="space-y-4">
+                  <Input name="doctorPassword" type="password" label="كلمة مرور الطبيب" value={localSettings.doctorPassword || ''} onChange={handleChange} icon={<LockClosedIcon className="w-4 h-4 text-gray-400"/>} />
+                  <Input name="secretaryPassword" type="password" label="كلمة مرور السكرتير" value={localSettings.secretaryPassword || ''} onChange={handleChange} icon={<LockClosedIcon className="w-4 h-4 text-gray-400"/>} />
+              </div>
+          );
+          default: return null;
+      }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-        <header className="flex justify-between items-center p-4 border-b flex-shrink-0">
-          <h2 className="text-2xl font-bold text-gray-800">إعدادات الطبيب</h2>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <header className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-xl font-bold text-gray-800">إعدادات العيادة</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
             <XMarkIcon className="w-6 h-6 text-gray-600" />
           </button>
         </header>
-        
-        <form onSubmit={handleSave} className="flex-grow overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {/* Service Management */}
-            <fieldset className="border p-4 rounded-lg">
-                <legend className="text-lg font-bold text-gray-700 px-2">إدارة الخدمات الطبية</legend>
-                <div className="space-y-2">
-                    {formData.services.map(service => (
-                        <div key={service.id} className="flex items-center gap-2">
-                            <input type="text" value={service.name} onChange={e => handleServiceChange(service.id, 'name', e.target.value)} className="input-style flex-grow" placeholder="اسم الخدمة"/>
-                            <input type="number" value={service.price} onChange={e => handleServiceChange(service.id, 'price', e.target.value)} className="input-style w-32" placeholder="السعر"/>
-                            <button type="button" onClick={() => handleDeleteService(service.id)} className="p-2 text-red-500 hover:bg-red-100 rounded-full"><TrashIcon className="w-5 h-5"/></button>
-                        </div>
-                    ))}
-                </div>
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-                    <input type="text" value={newServiceName} onChange={e => setNewServiceName(e.target.value)} className="input-style flex-grow" placeholder="اسم خدمة جديد"/>
-                    <input type="number" value={newServicePrice} onChange={e => setNewServicePrice(e.target.value)} className="input-style w-32" placeholder="السعر"/>
-                    <button type="button" onClick={handleAddService} className="p-2 text-green-500 bg-green-100 hover:bg-green-200 rounded-full"><PlusIcon className="w-5 h-5"/></button>
-                </div>
-            </fieldset>
 
-            {/* Form Fields Management */}
-            <fieldset className="border p-4 rounded-lg">
-                <legend className="text-lg font-bold text-gray-700 px-2">إدارة حقول الإدخال</legend>
-                <div className="grid grid-cols-2 gap-4">
-                    <label className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer"><input type="checkbox" name="showAgeField" checked={formData.showAgeField} onChange={handleChange} className="checkbox-style" /><span>عرض حقل العمر</span></label>
-                    <label className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer"><input type="checkbox" name="showPhoneField" checked={formData.showPhoneField} onChange={handleChange} className="checkbox-style" /><span>عرض حقل الهاتف</span></label>
-                    <label className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer"><input type="checkbox" name="showReasonField" checked={formData.showReasonField} onChange={handleChange} className="checkbox-style" /><span>عرض حقل سبب الزيارة</span></label>
-                    <label className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer"><input type="checkbox" name="showAmountPaidField" checked={formData.showAmountPaidField} onChange={handleChange} className="checkbox-style" /><span>عرض حقل دفعة أولية</span></label>
-                </div>
-            </fieldset>
-            
-            {/* Public View Customization */}
-            <fieldset className="border p-4 rounded-lg">
-                <legend className="text-lg font-bold text-gray-700 px-2">تخصيص الواجهة العامة</legend>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">رسالة الشريط المتحرك</label>
-                  <textarea name="publicMessage" value={formData.publicMessage} onChange={handleChange} rows={2} className="mt-1 w-full input-style"></textarea>
-                </div>
-                <div>
-                   <label htmlFor="marqueeSpeed" className="block text-sm font-medium text-gray-700">سرعة الشريط (ثانية)</label>
-                   <div className="flex items-center gap-4">
-                     <input id="marqueeSpeed" type="range" name="marqueeSpeed" min="5" max="60" value={formData.marqueeSpeed} onChange={handleChange} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                     <span className="font-bold text-blue-600">{formData.marqueeSpeed}</span>
-                   </div>
-                </div>
-            </fieldset>
+        <div className="flex-grow p-6 overflow-y-auto">
+            <div className="border-b border-gray-200 mb-6">
+                <nav className="-mb-px flex space-x-4 rtl:space-x-reverse" aria-label="Tabs">
+                    <Tab name="عام" id="general" activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <Tab name="الخدمات" id="services" activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <Tab name="المظهر" id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <Tab name="الحقول" id="fields" activeTab={activeTab} setActiveTab={setActiveTab} />
+                    <Tab name="الأمان" id="security" activeTab={activeTab} setActiveTab={setActiveTab} />
+                </nav>
+            </div>
+            {renderTabContent()}
+        </div>
 
-            {/* Passwords */}
-            <fieldset className="border p-4 rounded-lg">
-                <legend className="text-lg font-bold text-gray-700 px-2">الأمان</legend>
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">كلمة مرور الطبيب</label>
-                        <input type="password" name="doctorPassword" value={formData.doctorPassword || ''} onChange={handleChange} className="mt-1 w-full input-style" placeholder="اتركه فارغاً لعدم التغيير" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">كلمة مرور السكرتير</label>
-                        <input type="password" name="secretaryPassword" value={formData.secretaryPassword || ''} onChange={handleChange} className="mt-1 w-full input-style" placeholder="اتركه فارغاً لعدم التغيير" />
-                    </div>
-                </div>
-            </fieldset>
-          </div>
-        </form>
-
-        <footer className="flex justify-between items-center p-4 border-t bg-gray-50 rounded-b-2xl flex-shrink-0">
-           {message && <div className={`text-sm font-medium ${message.includes('خطأ') ? 'text-red-600' : 'text-green-600'}`}>{message}</div>}
-           <div className="flex-grow"></div>
-           <div className="flex gap-2">
-             <button type="button" onClick={onClose} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg transition">إغلاق</button>
-             <button type="button" onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-gray-400">
-                {isSaving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
-             </button>
-           </div>
+        <footer className="p-4 border-t bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg transition-colors">
+            إلغاء
+          </button>
+          <button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2">
+            {isSaving && <SpinnerIcon className="w-5 h-5" />}
+            {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+          </button>
         </footer>
       </div>
-      <style>{`
-        .input-style { box-sizing: border-box; width: 100%; padding: 0.5rem 0.75rem; background-color: white; border: 1px solid #D1D5DB; border-radius: 0.5rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); transition: border-color 0.2s, box-shadow 0.2s; } .input-style:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4); }
-        .checkbox-style { height: 1.25rem; width: 1.25rem; border-radius: 0.25rem; border-color: #D1D5DB; color: #2563EB; focus:ring-blue-500; }
-      `}</style>
     </div>
   );
 };
+
+const Tab: React.FC<{name: string, id: string, activeTab: string, setActiveTab: (id: string) => void}> = ({name, id, activeTab, setActiveTab}) => (
+    <button
+        onClick={() => setActiveTab(id)}
+        className={`${
+            activeTab === id
+            ? 'border-blue-500 text-blue-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+        } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm`}
+    >
+        {name}
+    </button>
+);
+
+const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & {label: string, icon?: React.ReactNode, className?: string}> = ({label, name, ...props}) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <div className="relative">
+            {props.icon && <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">{props.icon}</div>}
+            <input id={name} name={name} {...props} className={`form-input ${props.icon ? 'pl-10' : ''} ${props.className || ''}`} />
+        </div>
+    </div>
+);
+
+const TextArea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & {label: string}> = ({label, name, ...props}) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <textarea id={name} name={name} rows={3} {...props} className="form-input" />
+    </div>
+);
+
+const Checkbox: React.FC<React.InputHTMLAttributes<HTMLInputElement> & {label: string}> = ({label, name, ...props}) => (
+    <label htmlFor={name} className="flex items-center space-x-3 rtl:space-x-reverse cursor-pointer bg-gray-50 p-3 rounded-md hover:bg-gray-100">
+        <input id={name} name={name} type="checkbox" {...props} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+        <span className="text-sm font-medium text-gray-800">{label}</span>
+    </label>
+);
 
 export default SettingsModal;

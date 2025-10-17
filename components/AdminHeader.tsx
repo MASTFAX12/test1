@@ -6,9 +6,11 @@ interface AdminHeaderProps {
   role: Role;
   onLogout: () => void;
   onShowPublicView: () => void;
+  onOpenProfileModal: () => void;
+  profilePicUrl?: string;
 }
 
-const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicView }) => {
+const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicView, onOpenProfileModal, profilePicUrl }) => {
   const roleText = role === Role.Doctor ? 'الطبيب' : 'السكرتير';
 
   return (
@@ -30,6 +32,17 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicV
         >
           <EyeIcon className="w-5 h-5" />
           <span className="hidden md:inline">شاشة الجمهور</span>
+        </button>
+        <button
+          onClick={onOpenProfileModal}
+          className="w-10 h-10 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
+          title="تغيير صورة الملف الشخصي"
+        >
+          {profilePicUrl ? (
+            <img src={profilePicUrl} alt="Profile" className="w-full h-full rounded-full object-cover"/>
+          ) : (
+            <UserCircleIcon className="w-7 h-7 text-gray-600" />
+          )}
         </button>
         <button
           onClick={onLogout}

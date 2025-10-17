@@ -7,9 +7,17 @@ import {
   doc, 
   updateDoc, 
   deleteDoc,
-  setDoc
+  setDoc,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+  limit
 } from 'firebase/firestore';
-import type { Patient, PatientStatus, ClinicSettings, Role } from '../types.ts';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
+import { Role } from '../types.ts';
+import type { Patient, PatientStatus, ClinicSettings } from '../types.ts';
 
 // IMPORTANT: Replace with your own Firebase project configuration
 const firebaseConfig = {
@@ -23,6 +31,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
+
 
 export const addPatient = async (patientData: {
     name: string;
@@ -89,11 +99,81 @@ export const updateClinicSettings = async (settings: Partial<ClinicSettings>) =>
   await setDoc(settingsRef, dataToSet, { merge: true });
 };
 
-export const addChatMessage = async (text: string, sender: Role) => {
-  if (!text.trim()) return;
+export const uploadProfilePicture = async (file: File, role: Role.Doctor | Role.Secretary): Promise<string> => {
+  const filePath = `profile_pictures/${role}`;
+  const storageRef = ref(storage, filePath);
+  await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(storageRef);
+  return downloadURL;
+};
+
+export const uploadChatImage = async (file: File): Promise<string> => {
+  const fileId = uuidv4();
+  const storageRef = ref(storage, `chat_images/${fileId}`);
+  await uploadBytes(storageRef, file);
+  const downloadURL = await getDownloadURL(storageRef);
+  return downloadURL;
+};
+
+export const addChatMessage = async (message: {
+  text?: string;
+  imageUrl?: string;
+  sender: Role;
+}) => {
+  const { text, imageUrl, sender } = message;
+  if (!text?.trim() && !imageUrl) return;
+
   await addDoc(collection(db, 'chat'), {
-    text,
+    text: text || null,
+    imageUrl: imageUrl || null,
     sender,
     createdAt: Timestamp.now(),
   });
+};
+
+export const archiveOldChatMessages = async (): Promise<number> => {
+  const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+  const chatCollectionRef = collection(db, 'chat');
+  const archiveCollectionRef = collection(db, 'chat_archive');
+
+  let totalArchived = 0;
+
+  while (true) {
+    // Query for old messages, processing in chunks of 250 (500 operations)
+    // to stay within Firestore's batch write limits.
+    const q = query(
+      chatCollectionRef, 
+      where('createdAt', '<', twentyFourHoursAgo),
+      limit(250)
+    );
+    
+    const snapshot = await getDocs(q);
+    
+    // If no more documents are found, break the loop
+    if (snapshot.empty) {
+      break;
+    }
+    
+    const batch = writeBatch(db);
+    
+    snapshot.forEach(docSnapshot => {
+      // Add to archive collection
+      const archiveDocRef = doc(archiveCollectionRef, docSnapshot.id);
+      batch.set(archiveDocRef, docSnapshot.data());
+      
+      // Delete from original chat collection
+      batch.delete(docSnapshot.ref);
+    });
+    
+    await batch.commit();
+    
+    totalArchived += snapshot.size;
+
+    // If we processed less than the limit, we know we're done and can exit early.
+    if (snapshot.size < 250) {
+        break;
+    }
+  }
+  
+  return totalArchived;
 };

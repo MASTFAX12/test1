@@ -9,6 +9,8 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   publicMessage: 'أهلاً بكم في عيادتنا. نتمنى لكم دوام الصحة والعافية.',
   doctorPassword: 'doctor123',
   secretaryPassword: 'sec123',
+  doctorProfilePicUrl: '',
+  secretaryProfilePicUrl: '',
   themeColor: '#2563eb', // blue-600
   callSoundEnabled: true,
   services: [

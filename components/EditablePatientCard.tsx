@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import type { Patient } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
+import { toast } from 'react-hot-toast';
 
 interface EditablePatientCardProps {
   patient: Patient;
@@ -21,7 +21,21 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return; // Basic validation
+    if (!name) {
+      toast.error('اسم المراجع مطلوب.');
+      return;
+    }
+
+    // Validation for numeric fields
+    if (age && isNaN(parseInt(age, 10))) {
+        toast.error('يرجى إدخال عمر صحيح (أرقام فقط).');
+        return;
+    }
+    if (amountPaid && isNaN(parseFloat(amountPaid))) {
+        toast.error('يرجى إدخال مبلغ صحيح (أرقام فقط).');
+        return;
+    }
+    
     setIsSaving(true);
     try {
       await updatePatientDetails(patient.id, { 
@@ -32,9 +46,11 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
           amountPaid: amountPaid ? parseFloat(amountPaid) : undefined,
           showDetailsToPublic: showDetails
       });
+      toast.success('تم حفظ التعديلات.');
       onSave();
     } catch (error) {
       console.error("Failed to update patient details:", error);
+      toast.error('فشل حفظ التعديلات.');
     } finally {
       setIsSaving(false);
     }

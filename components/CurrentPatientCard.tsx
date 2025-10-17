@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import type { Patient } from '../types.ts';
 import { PatientStatus } from '../types.ts';
@@ -35,7 +36,7 @@ const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callin
             <h2 className="text-3xl md:text-5xl font-bold mb-4 text-white drop-shadow-lg">
               {callingTitle}
             </h2>
-            <p className="text-5xl md:text-8xl font-black tracking-wider break-words text-white drop-shadow-xl">
+            <p className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-wider break-words text-white drop-shadow-xl">
               {callingPatient.name}
             </p>
           </>
@@ -43,7 +44,7 @@ const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callin
           <>
             {currentPatient ? (
               <>
-                <h2 className="text-5xl lg:text-7xl font-bold text-gray-800 drop-shadow-md mb-4 break-words leading-tight">
+                <h2 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-gray-800 drop-shadow-md mb-4 break-words leading-tight">
                   {currentPatient.name}
                 </h2>
                 {currentPatient.reason && (

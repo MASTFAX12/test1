@@ -1,10 +1,21 @@
-import React, { useState, Fragment } from 'react';
+
+import React, { useState, useMemo, FC, Fragment } from 'react';
 import type { Patient, Service } from '../types.ts';
-import { Role, PatientStatus } from '../types.ts';
-import { BellIcon, CheckIcon, ArrowPathIcon, TrashIcon, PencilIcon, CurrencyDollarIcon } from './Icons.tsx';
+import { PatientStatus, Role } from '../types.ts';
+import {
+  UserIcon,
+  TrashIcon,
+  BellIcon,
+  CheckIcon,
+  ArrowPathIcon,
+  PencilIcon,
+  CurrencyDollarIcon,
+  ArrowUturnLeftIcon,
+  Cog8ToothIcon,
+} from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
+import PaymentInputCard from './PaymentInputCard.tsx';
 import ServiceSelectionModal from './ServiceSelectionModal.tsx';
-import { updatePatientDetails } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
 
 interface PatientQueueListProps {
@@ -18,7 +29,113 @@ interface PatientQueueListProps {
   onSetPatientServices: (patient: Patient, services: Service[]) => void;
 }
 
-const PatientQueueList: React.FC<PatientQueueListProps> = ({
+interface PatientCardProps {
+  patient: Patient;
+  index?: number;
+  role: Role;
+  onUpdateStatus: (id: string, status: PatientStatus) => void;
+  onDelete: (id: string) => void;
+  onCall: (patient: Patient) => void;
+  onEdit: () => void;
+  onSetPayment: () => void;
+  onSetServices: () => void;
+  isBeingCalled?: boolean;
+}
+
+const PatientCard: FC<PatientCardProps> = ({
+  patient,
+  index,
+  role,
+  onUpdateStatus,
+  onDelete,
+  onCall,
+  onEdit,
+  onSetPayment,
+  onSetServices,
+  isBeingCalled,
+}) => {
+  const statusConfig = {
+    [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800' },
+    [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-100 text-red-800' },
+    [PatientStatus.PendingPayment]: { text: 'بانتظar الدفع', color: 'bg-yellow-100 text-yellow-800' },
+    [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-100 text-green-800' },
+    [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-100 text-gray-800' },
+  };
+
+  const { text: statusText, color: statusColor } = statusConfig[patient.status] || {};
+
+  return (
+    <div className={`bg-white rounded-xl p-4 mb-3 shadow-md border-l-4 ${isBeingCalled ? 'border-blue-500 ring-2 ring-blue-500 animate-pulse' : 'border-transparent'}`}>
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          {index !== undefined && <span className="flex-shrink-0 bg-gray-200 text-gray-700 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center">{index + 1}</span>}
+          <div className="flex-grow">
+            <h3 className="font-bold text-gray-800 text-lg">{patient.name}</h3>
+            {patient.reason && patient.showDetailsToPublic && <p className="text-sm text-gray-500">{patient.reason}</p>}
+          </div>
+        </div>
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusText}</span>
+      </div>
+      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+        <p>العمر: {patient.age || 'غير محدد'}</p>
+        <p>المبلغ المطلوب: <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></p>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2 justify-end">
+        {/* Actions for Secretary */}
+        {role === Role.Secretary && (
+          <>
+            {patient.status === PatientStatus.Waiting && (
+              <>
+                <button title="نداء" onClick={() => onCall(patient)} className="action-btn bg-blue-500 hover:bg-blue-600"><BellIcon className="w-4 h-4" /></button>
+                <button title="إدخال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+              </>
+            )}
+            {patient.status === PatientStatus.PendingPayment && (
+              <button title="تسجيل دفعة" onClick={onSetPayment} className="action-btn bg-yellow-500 hover:bg-yellow-600"><CurrencyDollarIcon className="w-4 h-4" /></button>
+            )}
+            {patient.status === PatientStatus.InProgress && (
+                <button title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className="action-btn bg-gray-500 hover:bg-gray-600"><ArrowUturnLeftIcon className="w-4 h-4"/></button>
+            )}
+             <button title="تعديل" onClick={onEdit} className="action-btn bg-gray-500 hover:bg-gray-600"><PencilIcon className="w-4 h-4" /></button>
+             <button title="حذف" onClick={() => onDelete(patient.id)} className="action-btn bg-red-500 hover:bg-red-600"><TrashIcon className="w-4 h-4" /></button>
+          </>
+        )}
+        {/* Actions for Doctor */}
+        {role === Role.Doctor && (
+          <>
+            {patient.status === PatientStatus.Waiting && (
+              <button title="إدخال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+            )}
+            {patient.status === PatientStatus.InProgress && (
+              <>
+                <button title="تحديد الخدمات والرسوم" onClick={onSetServices} className="action-btn bg-blue-500 hover:bg-blue-600"><Cog8ToothIcon className="w-4 h-4" /></button>
+                <button title="إنهاء بدون رسوم" onClick={() => onUpdateStatus(patient.id, PatientStatus.Done)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4" /></button>
+              </>
+            )}
+             {patient.status !== PatientStatus.InProgress && patient.status !== PatientStatus.Waiting && (
+                 <button title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className="action-btn bg-gray-500 hover:bg-gray-600"><ArrowUturnLeftIcon className="w-4 h-4"/></button>
+             )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const QueueSection: FC<{ title: string; children: React.ReactNode; count: number; }> = ({ title, children, count }) => (
+    <div className="bg-gray-50/50 backdrop-blur-sm p-4 rounded-xl shadow-inner border border-gray-200">
+      <h2 className="text-lg font-bold text-gray-700 mb-3">{title} ({count})</h2>
+      {count > 0 ? (
+          <div className="space-y-3">{children}</div>
+      ) : (
+          <p className="text-center text-gray-500 py-4">لا يوجد مراجعون في هذه القائمة.</p>
+      )}
+    </div>
+);
+
+
+const PatientQueueList: FC<PatientQueueListProps> = ({
   patients,
   role,
   onUpdateStatus,
@@ -29,152 +146,91 @@ const PatientQueueList: React.FC<PatientQueueListProps> = ({
   onSetPatientServices,
 }) => {
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
+  const [paymentPatientId, setPaymentPatientId] = useState<string | null>(null);
   const [serviceSelectionPatient, setServiceSelectionPatient] = useState<Patient | null>(null);
 
-  const isActionable = role === Role.Doctor || role === Role.Secretary;
+  const { waiting, inProgress, pendingPayment, doneOrSkipped } = useMemo(() => {
+    return patients.reduce((acc, p) => {
+      if (p.status === PatientStatus.Waiting) acc.waiting.push(p);
+      else if (p.status === PatientStatus.InProgress) acc.inProgress.push(p);
+      else if (p.status === PatientStatus.PendingPayment) acc.pendingPayment.push(p);
+      else acc.doneOrSkipped.push(p);
+      return acc;
+    }, { waiting: [], inProgress: [], pendingPayment: [], doneOrSkipped: [] } as Record<string, Patient[]>);
+  }, [patients]);
   
-  const handleConfirmPayment = async (patient: Patient) => {
-    try {
-      await updatePatientDetails(patient.id, {
-        status: PatientStatus.Done,
-        amountPaid: patient.requiredAmount,
-      });
-      toast.success(`تم تأكيد دفعة ${patient.name}`);
-    } catch (error) {
-      toast.error('فشل تأكيد الدفعة.');
-      console.error('Failed to confirm payment:', error);
-    }
-  };
+  const handlePaymentSave = (patientId: string) => {
+    onUpdateStatus(patientId, PatientStatus.Done);
+    setPaymentPatientId(null);
+    toast.success('تم تسجيل الدفعة بنجاح.');
+  }
 
-
-  const renderPatientCard = (patient: Patient) => {
-    const isEditing = editingPatientId === patient.id;
-    const isBeingCalled = callingPatient?.id === patient.id;
-
-    if (isEditing) {
+  const renderPatient = (patient: Patient, index?: number) => {
+    if (editingPatientId === patient.id && role === Role.Secretary) {
       return (
         <EditablePatientCard
           key={patient.id}
           patient={patient}
           onCancel={() => setEditingPatientId(null)}
           onSave={() => setEditingPatientId(null)}
-          isBeingCalled={isBeingCalled}
+          isBeingCalled={callingPatient?.id === patient.id}
         />
       );
     }
-
-    const statusStyles = {
-        [PatientStatus.Waiting]: { border: 'border-blue-500', bg: 'bg-white' },
-        [PatientStatus.InProgress]: { border: 'border-red-500', bg: 'bg-red-50' },
-        [PatientStatus.PendingPayment]: { border: 'border-yellow-500', bg: 'bg-yellow-50' },
-        [PatientStatus.Done]: { border: 'border-green-500', bg: 'bg-green-50' },
-        [PatientStatus.Skipped]: { border: 'border-gray-500', bg: 'bg-gray-50' },
-    };
-
-    const currentStyle = statusStyles[patient.status] || statusStyles[PatientStatus.Waiting];
-
+    if (paymentPatientId === patient.id && role === Role.Secretary) {
+        return (
+            <PaymentInputCard
+                key={patient.id}
+                patient={patient}
+                onCancel={() => setPaymentPatientId(null)}
+                onSave={handlePaymentSave}
+            />
+        )
+    }
     return (
-      <div key={patient.id} className={`${currentStyle.bg} rounded-xl p-4 mb-3 shadow-md border-l-4 transition-all duration-300 ${isBeingCalled ? 'ring-4 ring-offset-2 ring-blue-500 animate-pulse' : ''} ${currentStyle.border}`}>
-        <div className="flex justify-between items-start">
-          <div>
-            <p className="font-bold text-2xl text-gray-800">{patient.name}</p>
-            {patient.reason && <p className="text-md text-gray-600 mt-1">{patient.reason}</p>}
-          </div>
-          {isActionable && (
-            <div className="flex items-center gap-1">
-              <button onClick={() => setEditingPatientId(patient.id)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" title="تعديل"><PencilIcon className="w-5 h-5"/></button>
-              <button onClick={() => onDelete(patient.id)} className="p-2 text-red-500 hover:bg-red-100 rounded-full" title="حذف"><TrashIcon className="w-5 h-5"/></button>
-            </div>
-          )}
-        </div>
-        
-        {isActionable && (
-          <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-200">
-            {patient.status === PatientStatus.Waiting && (
-                <div className="flex gap-2">
-                    <button onClick={() => onCall(patient)} className="action-btn bg-blue-500 hover:bg-blue-600"><BellIcon className="w-4 h-4 mr-1"/> نداء</button>
-                    {role === Role.Doctor && <button onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className="action-btn bg-green-500 hover:bg-green-600"><CheckIcon className="w-4 h-4 mr-1"/> بدء الكشف</button>}
-                </div>
-            )}
-            {patient.status === PatientStatus.InProgress && role === Role.Doctor && (
-                <button onClick={() => setServiceSelectionPatient(patient)} className="action-btn bg-yellow-500 hover:bg-yellow-600 w-full"><CurrencyDollarIcon className="w-4 h-4 mr-1"/> إنهاء وتحديد الرسوم</button>
-            )}
-            {patient.status === PatientStatus.PendingPayment && role === Role.Secretary && (
-                <div className="text-center">
-                    <p className="text-sm font-medium text-gray-600 mb-2">المبلغ المطلوب: <span className="font-bold text-lg text-green-600">{patient.requiredAmount?.toLocaleString()} د.ع</span></p>
-                    <button onClick={() => handleConfirmPayment(patient)} className="action-btn bg-green-500 hover:bg-green-600 w-full"><CheckIcon className="w-4 h-4 mr-1"/> تأكيد استلام المبلغ</button>
-                </div>
-            )}
-            {(patient.status === PatientStatus.Waiting || patient.status === PatientStatus.InProgress) && (
-                 <button onClick={() => onUpdateStatus(patient.id, PatientStatus.Skipped)} className="action-btn bg-gray-500 hover:bg-gray-600"> تخطي</button>
-            )}
-            {patient.status === PatientStatus.Done && (
-                <p className="text-green-600 font-semibold text-sm flex items-center justify-center"><CheckIcon className="w-5 h-5 mr-1"/> مكتمل</p>
-            )}
-            {patient.status === PatientStatus.Skipped && (
-                <p className="text-gray-600 font-semibold text-sm flex items-center justify-center"><ArrowPathIcon className="w-5 h-5 mr-1"/> تم تخطيه</p>
-            )}
-          </div>
-        )}
-      </div>
+      <PatientCard
+        key={patient.id}
+        patient={patient}
+        index={index}
+        role={role}
+        onUpdateStatus={onUpdateStatus}
+        onDelete={onDelete}
+        onCall={onCall}
+        onEdit={() => setEditingPatientId(patient.id)}
+        onSetPayment={() => setPaymentPatientId(patient.id)}
+        onSetServices={() => setServiceSelectionPatient(patient)}
+        isBeingCalled={callingPatient?.id === patient.id}
+      />
     );
   };
-  
-  const sections = [
-    { title: 'قيد المعالجة', status: PatientStatus.InProgress, hiddenForPublic: false },
-    { title: 'في الانتظار', status: PatientStatus.Waiting, hiddenForPublic: false },
-    { title: 'بانتظار الدفع', status: PatientStatus.PendingPayment, hiddenForPublic: true },
-    { title: 'المراجعون المكتملون', status: PatientStatus.Done, hiddenForPublic: true },
-    { title: 'تم تخطيهم', status: PatientStatus.Skipped, hiddenForPublic: true },
-  ];
 
   return (
-    <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {sections.map(section => {
-          if (section.hiddenForPublic && role === Role.Public) return null;
-
-          const filteredPatients = patients.filter(p => p.status === section.status);
-          if (filteredPatients.length === 0 && role === Role.Public) return null;
-
-          return (
-            <div key={section.status} className="bg-gray-100/50 p-4 rounded-xl">
-              <h3 className="font-bold text-gray-700 mb-4 text-center">{section.title} ({filteredPatients.length})</h3>
-              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
-                {filteredPatients.length > 0
-                  ? filteredPatients.map(renderPatientCard)
-                  : isActionable && <p className="text-center text-gray-500 pt-4">لا يوجد مراجعون في هذه القائمة.</p>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {serviceSelectionPatient && (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <QueueSection title="الانتظار" count={waiting.length}>
+        {waiting.map((p, i) => renderPatient(p, i))}
+      </QueueSection>
+      <QueueSection title="قيد المعالجة" count={inProgress.length}>
+        {inProgress.map(p => renderPatient(p))}
+      </QueueSection>
+      <QueueSection title="بانتظار الدفع" count={pendingPayment.length}>
+        {pendingPayment.map(p => renderPatient(p))}
+      </QueueSection>
+      <QueueSection title="مكتمل / متجاوز" count={doneOrSkipped.length}>
+        {doneOrSkipped.map(p => renderPatient(p))}
+      </QueueSection>
+      
+      {serviceSelectionPatient && role === Role.Doctor && (
         <ServiceSelectionModal 
             patient={serviceSelectionPatient}
             availableServices={availableServices}
             onClose={() => setServiceSelectionPatient(null)}
-            onSave={(patient, services) => {
-                onSetPatientServices(patient, services);
+            onSave={(p, services) => {
+                onSetPatientServices(p, services);
                 setServiceSelectionPatient(null);
             }}
         />
       )}
-      <style>{`
-        .action-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-weight: bold;
-          padding: 8px 12px;
-          border-radius: 8px;
-          transition: background-color 0.2s;
-          font-size: 14px;
-          flex-grow: 1;
-        }
-      `}</style>
-    </>
+    </div>
   );
 };
 

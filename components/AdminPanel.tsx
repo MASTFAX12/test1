@@ -22,9 +22,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !visitDate) {
-      setMessage({ text: 'يرجى إدخال اسم المريض وتاريخ الزيارة', type: 'error' });
+      setMessage({ text: 'يرجى إدخال اسم المراجع وتاريخ الزيارة', type: 'error' });
       return;
     }
+    // Validation for numeric fields
+    if (age && isNaN(parseInt(age, 10))) {
+        setMessage({ text: 'يرجى إدخال عمر صحيح (أرقام فقط)', type: 'error' });
+        return;
+    }
+    if (amountPaid && isNaN(parseFloat(amountPaid))) {
+        setMessage({ text: 'يرجى إدخال مبلغ صحيح (أرقام فقط)', type: 'error' });
+        return;
+    }
+
     setIsSubmitting(true);
     setMessage(null);
     try {
@@ -51,7 +61,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
       setVisitDate(new Date().toISOString().split('T')[0]);
       nameInputRef.current?.focus();
     } catch (error) {
-      setMessage({ text: 'حدث خطأ أثناء إضافة المريض', type: 'error' });
+      setMessage({ text: 'حدث خطأ أثناء إضافة المراجع', type: 'error' });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -71,7 +81,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 bg-white/50 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+            className="w-full px-3 py-2 bg-white/50 text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
             placeholder="مثال: أحمد محمد"
             required
           />
@@ -85,7 +95,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
                 type="number"
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
-                className="w-full px-3 py-2 bg-white/50 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full px-3 py-2 bg-white/50 text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
                 placeholder="35"
               />
             </div>
@@ -99,7 +109,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
                 step="any"
                 value={amountPaid}
                 onChange={(e) => setAmountPaid(e.target.value)}
-                className="w-full px-3 py-2 bg-white/50 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full px-3 py-2 bg-white/50 text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
                 placeholder="25000"
               />
             </div>
@@ -113,7 +123,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3 py-2 bg-white/50 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+              className="w-full px-3 py-2 bg-white/50 text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
               placeholder="07..."
             />
           </div>
@@ -126,7 +136,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 bg-white/50 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+              className="w-full px-3 py-2 bg-white/50 text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
               placeholder="استشارة, مراجعة, ...الخ"
             />
           </div>
@@ -138,7 +148,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
             type="date"
             value={visitDate}
             onChange={(e) => setVisitDate(e.target.value)}
-            className="w-full px-3 py-2 bg-white/50 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+            className="w-full px-3 py-2 bg-white/50 text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
             required
           />
         </div>

@@ -19,7 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Role } from '../types.ts';
 import type { Patient, PatientStatus, ClinicSettings } from '../types.ts';
 
-// IMPORTANT: Replace with your own Firebase project configuration
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAGcm_YmjwQfodR7uPG1lF33AsEs1eF5rE",
   authDomain: "studio-1806054817-aa9e0.firebaseapp.com",
@@ -29,9 +29,12 @@ const firebaseConfig = {
   appId: "1:611346994999:web:138f1525891169860cecb2"
 };
 
+// Initialize Firebase with your project's configuration
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+export { db, storage };
 
 
 export const addPatient = async (patientData: {
@@ -43,6 +46,7 @@ export const addPatient = async (patientData: {
     showDetailsToPublic?: boolean;
     visitDate?: Date;
 }) => {
+    if (!db) return;
     const { name, phone, reason, age, amountPaid, showDetailsToPublic, visitDate } = patientData;
     const visitTimestamp = visitDate ? Timestamp.fromDate(visitDate) : Timestamp.now();
     await addDoc(collection(db, 'queue'), {
@@ -61,17 +65,17 @@ export const addPatient = async (patientData: {
 };
 
 export const updatePatientStatus = async (id: string, status: PatientStatus) => {
+  if (!db) return;
   const patientRef = doc(db, 'queue', id);
   await updateDoc(patientRef, { status });
 };
 
 export const updatePatientDetails = async (id: string, details: Partial<Omit<Patient, 'id' | 'createdAt'>>) => {
+  if (!db) return;
   const patientRef = doc(db, 'queue', id);
   
-  // Create a mutable copy to avoid issues with deleting from a partial type
   const dataToUpdate: { [key: string]: any } = { ...details };
 
-  // Firestore cannot store 'undefined', so we remove keys with undefined values.
   Object.keys(dataToUpdate).forEach(key => {
     if (dataToUpdate[key as keyof typeof dataToUpdate] === undefined) {
       delete dataToUpdate[key as keyof typeof dataToUpdate];
@@ -84,22 +88,33 @@ export const updatePatientDetails = async (id: string, details: Partial<Omit<Pat
 };
 
 
-export const deletePatient = async (id: string) => {
+export const cancelPatient = async (id: string) => {
+  if (!db) return;
   const patientRef = doc(db, 'queue', id);
-  await deleteDoc(patientRef);
+  await updateDoc(patientRef, { status: 'cancelled' });
+};
+
+export const reorderPatientQueue = async (patientId: string, newTimestamp: Timestamp) => {
+  if (!db) return;
+  const patientRef = doc(db, 'queue', patientId);
+  await updateDoc(patientRef, { createdAt: newTimestamp });
 };
 
 export const updateClinicSettings = async (settings: Partial<ClinicSettings>) => {
+  if (!db) return;
   const settingsRef = doc(db, 'settings', 'clinicConfig');
-  // Make sure services array is handled correctly
-  const dataToSet = { ...settings };
+  const dataToSet: Partial<ClinicSettings> = { ...settings };
   if (dataToSet.services && !Array.isArray(dataToSet.services)) {
-    delete dataToSet.services; // Avoid saving invalid data
+    delete dataToSet.services;
   }
+  delete dataToSet.doctorPassword;
+  delete dataToSet.secretaryPassword;
+
   await setDoc(settingsRef, dataToSet, { merge: true });
 };
 
 export const uploadProfilePicture = async (file: File, role: Role.Doctor | Role.Secretary): Promise<string> => {
+  if (!storage) throw new Error("Storage not initialized");
   const filePath = `profile_pictures/${role}`;
   const storageRef = ref(storage, filePath);
   await uploadBytes(storageRef, file);
@@ -108,6 +123,7 @@ export const uploadProfilePicture = async (file: File, role: Role.Doctor | Role.
 };
 
 export const uploadChatImage = async (file: File): Promise<string> => {
+  if (!storage) throw new Error("Storage not initialized");
   const fileId = uuidv4();
   const storageRef = ref(storage, `chat_images/${fileId}`);
   await uploadBytes(storageRef, file);
@@ -120,6 +136,7 @@ export const addChatMessage = async (message: {
   imageUrl?: string;
   sender: Role;
 }) => {
+  if (!db) return;
   const { text, imageUrl, sender } = message;
   if (!text?.trim() && !imageUrl) return;
 
@@ -131,7 +148,14 @@ export const addChatMessage = async (message: {
   });
 };
 
+export const deleteChatMessage = async (messageId: string) => {
+  if (!db) return;
+  const messageRef = doc(db, 'chat', messageId);
+  await deleteDoc(messageRef);
+};
+
 export const archiveOldChatMessages = async (): Promise<number> => {
+  if (!db) return 0;
   const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
   const chatCollectionRef = collection(db, 'chat');
   const archiveCollectionRef = collection(db, 'chat_archive');
@@ -139,8 +163,6 @@ export const archiveOldChatMessages = async (): Promise<number> => {
   let totalArchived = 0;
 
   while (true) {
-    // Query for old messages, processing in chunks of 250 (500 operations)
-    // to stay within Firestore's batch write limits.
     const q = query(
       chatCollectionRef, 
       where('createdAt', '<', twentyFourHoursAgo),
@@ -149,7 +171,6 @@ export const archiveOldChatMessages = async (): Promise<number> => {
     
     const snapshot = await getDocs(q);
     
-    // If no more documents are found, break the loop
     if (snapshot.empty) {
       break;
     }
@@ -157,11 +178,8 @@ export const archiveOldChatMessages = async (): Promise<number> => {
     const batch = writeBatch(db);
     
     snapshot.forEach(docSnapshot => {
-      // Add to archive collection
       const archiveDocRef = doc(archiveCollectionRef, docSnapshot.id);
       batch.set(archiveDocRef, docSnapshot.data());
-      
-      // Delete from original chat collection
       batch.delete(docSnapshot.ref);
     });
     
@@ -169,11 +187,28 @@ export const archiveOldChatMessages = async (): Promise<number> => {
     
     totalArchived += snapshot.size;
 
-    // If we processed less than the limit, we know we're done and can exit early.
     if (snapshot.size < 250) {
         break;
     }
   }
   
   return totalArchived;
+};
+
+export const getPatientsByDateRange = async (startDate: Date, endDate: Date): Promise<Patient[]> => {
+  if (!db) return [];
+  const startTimestamp = Timestamp.fromDate(startDate);
+  const endTimestamp = Timestamp.fromDate(endDate);
+  
+  const q = query(
+    collection(db, 'queue'),
+    where('visitDate', '>=', startTimestamp),
+    where('visitDate', '<=', endTimestamp)
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Patient[];
 };

@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
+import { Timestamp } from 'firebase/firestore';
 import { useQueue } from './hooks/useQueue.ts';
 import { useSettings } from './hooks/useSettings.ts';
 import { usePrevious } from './hooks/usePrevious.ts';
 import { Role, PatientStatus } from './types.ts';
 import type { Patient, Service } from './types.ts';
-import { updatePatientStatus, deletePatient, updatePatientDetails, uploadProfilePicture, updateClinicSettings } from './services/firebase.ts';
+import { 
+  updatePatientStatus, 
+  cancelPatient, 
+  updatePatientDetails, 
+  uploadProfilePicture, 
+  updateClinicSettings, 
+  reorderPatientQueue
+} from './services/firebase.ts';
 import { playNotificationSound } from './utils/audio.ts';
 
 import AdminHeader from './components/AdminHeader.tsx';
@@ -25,18 +33,15 @@ import { Cog8ToothIcon, ArrowUturnLeftIcon } from './components/Icons.tsx';
 function App() {
   const { patients, loading: queueLoading } = useQueue();
   const { settings, loading: settingsLoading } = useSettings();
-  const [role, setRole] = useState<Role>(Role.Public); // Controls current view
-  const [loggedInUserRole, setLoggedInUserRole] = useState<Role>(Role.None); // Tracks authenticated user
+  const [role, setRole] = useState<Role>(Role.Public);
+  const [loggedInUserRole, setLoggedInUserRole] = useState<Role>(Role.None);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   
-  // State for the "calling" animation on the public screen
   const [callingPatient, setCallingPatient] = useState<Patient | null>(null);
-  // FIX: Changed type from NodeJS.Timeout to number for browser compatibility.
   const [callTimeoutId, setCallTimeoutId] = useState<number | null>(null);
   
-  // State for the persistent notification on admin screen
   const [notifiedPatient, setNotifiedPatient] = useState<Patient | null>(null);
 
   const prevPatients = usePrevious(patients);
@@ -44,10 +49,9 @@ function App() {
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-color', settings.themeColor);
     document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f3f4f6';
-    document.body.dir = 'rtl'; // Set text direction to right-to-left
+    document.body.dir = 'rtl';
   }, [settings.themeColor, role]);
 
-  // Effect to detect a new patient and play a sound
   useEffect(() => {
     if (role !== Role.Public && prevPatients && patients.length > prevPatients.length) {
       if (settings.callSoundEnabled) {
@@ -79,7 +83,7 @@ function App() {
 
     const newTimeoutId = setTimeout(() => {
       setCallingPatient(null);
-    }, 10000); // Animation lasts for 10 seconds
+    }, 10000);
     setCallTimeoutId(newTimeoutId);
   }, [settings.callSoundEnabled, callTimeoutId]);
 
@@ -93,13 +97,24 @@ function App() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleCancel = async (id: string) => {
+    if (window.confirm('هل أنت متأكد من إلغاء هذا الموعد؟ سيتم نقله إلى الأرشيف.')) {
+        try {
+            await cancelPatient(id);
+            toast.success('تم إلغاء الموعد.');
+        } catch (error) {
+            toast.error('فشل إلغاء الموعد.');
+            console.error(error);
+        }
+    }
+  };
+  
+  const handleReorder = async (patientId: string, newTimestamp: Timestamp) => {
     try {
-      await deletePatient(id);
-      toast.success('تم حذف المراجع.');
+        await reorderPatientQueue(patientId, newTimestamp);
     } catch (error) {
-      toast.error('فشل حذف المراجع.');
-      console.error(error);
+        toast.error('فشل في تغيير الترتيب.');
+        console.error("Failed to reorder:", error);
     }
   };
   
@@ -231,8 +246,9 @@ function App() {
                 patients={patients} 
                 role={role}
                 onUpdateStatus={handleUpdateStatus}
-                onDelete={handleDelete}
+                onCancel={handleCancel}
                 onCall={handleCallPatient}
+                onReorder={handleReorder}
                 callingPatient={callingPatient}
                 availableServices={settings.services || []}
                 onSetPatientServices={handleSetServices}
@@ -243,7 +259,6 @@ function App() {
           </aside>
         </div>
         
-        {/* Floating Widgets */}
         <div className="fixed bottom-5 right-5 flex flex-col gap-4 z-40">
             <StatsPanel patients={patients} />
             <ChatPanel role={role} />
@@ -251,7 +266,6 @@ function App() {
 
       </main>
       
-      {/* Admin specific UI elements */}
       <Toaster />
       {role === Role.Doctor && (
         <button 

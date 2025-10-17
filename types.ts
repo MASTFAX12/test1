@@ -6,6 +6,7 @@ export enum PatientStatus {
   PendingPayment = 'pending_payment',
   Done = 'done',
   Skipped = 'skipped',
+  Cancelled = 'cancelled',
 }
 
 export interface Service {

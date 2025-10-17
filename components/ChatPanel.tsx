@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../hooks/useChat.ts';
-import { addChatMessage, uploadChatImage, archiveOldChatMessages } from '../services/firebase.ts';
+import { addChatMessage, uploadChatImage, archiveOldChatMessages, deleteChatMessage } from '../services/firebase.ts';
 import { Role } from '../types.ts';
-import { PaperAirplaneIcon, ChatBubbleOvalLeftEllipsisIcon, XMarkIcon, PaperClipIcon, SpinnerIcon, ArchiveBoxIcon } from './Icons.tsx';
+import { PaperAirplaneIcon, ChatBubbleOvalLeftEllipsisIcon, XMarkIcon, PaperClipIcon, SpinnerIcon, ArchiveBoxIcon, TrashIcon } from './Icons.tsx';
 import { usePrevious } from '../hooks/usePrevious.ts';
 import type { ChatMessage } from '../types.ts';
 import { toast } from 'react-hot-toast';
@@ -55,6 +55,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
       toast.error('فشل إرسال الرسالة.');
     }
   };
+  
+  const handleDeleteMessage = async (messageId: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذه الرسالة؟')) {
+        try {
+            await deleteChatMessage(messageId);
+            toast.success('تم حذف الرسالة.');
+        } catch (err) {
+            console.error('Failed to delete message:', err);
+            toast.error('فشل حذف الرسالة.');
+        }
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,7 +88,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
   };
   
   const handleArchiveMessages = async () => {
-    const confirmArchive = window.confirm("هل أنت متأكد من رغبتك في أرشفة جميع الرسائل التي مر عليها أكثر من 24 ساعة؟ لا يمكن التراجع عن هذا الإجراء.");
+    const confirmArchive = window.confirm("سيتم أرشفة جميع الرسائل التي مر عليها أكثر من 24 ساعة بشكل دائم. هل أنت متأكد من المتابعة؟");
     if (!confirmArchive) return;
 
     setIsArchiving(true);
@@ -125,7 +137,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
                 onClick={handleArchiveMessages}
                 disabled={isArchiving}
                 className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="أرشفة الرسائل القديمة"
+                title="أرشفة الرسائل القديمة (أقدم من 24 ساعة)"
             >
                 {isArchiving ? <SpinnerIcon className="w-5 h-5 text-gray-600" /> : <ArchiveBoxIcon className="w-5 h-5 text-gray-600"/>}
             </button>
@@ -146,7 +158,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
         )}
         <div className="space-y-4">
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} currentUserRole={role} />
+            <MessageBubble key={msg.id} message={msg} currentUserRole={role} onDelete={handleDeleteMessage} />
           ))}
         </div>
         <div ref={messagesEndRef} />
@@ -191,7 +203,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
   );
 };
 
-const MessageBubble: React.FC<{message: ChatMessage; currentUserRole: Role}> = ({ message, currentUserRole }) => {
+const MessageBubble: React.FC<{message: ChatMessage; currentUserRole: Role; onDelete: (id: string) => void;}> = ({ message, currentUserRole, onDelete }) => {
     const isSender = message.sender === currentUserRole;
     const senderName = message.sender === Role.Doctor ? 'الطبيب' : 'السكرتير';
     const messageTime = message.createdAt?.toDate().toLocaleTimeString('ar-SA', {
@@ -200,17 +212,28 @@ const MessageBubble: React.FC<{message: ChatMessage; currentUserRole: Role}> = (
     }) ?? '';
 
     return (
-        <div className={`flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
-            <div className={`max-w-xs p-3 rounded-2xl ${isSender ? 'bg-blue-500 text-white rounded-br-lg' : 'bg-gray-200 text-gray-800 rounded-bl-lg'}`}>
-                {!isSender && <p className="text-xs font-bold mb-1 text-blue-600">{senderName}</p>}
-                {message.imageUrl && (
-                    <a href={message.imageUrl} target="_blank" rel="noopener noreferrer" className="block my-1">
-                        <img src={message.imageUrl} alt="محتوى مرسل" className="rounded-lg max-w-full h-auto max-h-48 object-cover bg-gray-300" />
-                    </a>
+        <div className={`flex flex-col group ${isSender ? 'items-end' : 'items-start'}`}>
+            <div className={`flex items-center gap-2 ${isSender ? 'flex-row-reverse' : 'flex-row'}`}>
+                {isSender && (
+                    <button 
+                        onClick={() => onDelete(message.id)}
+                        className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="حذف الرسالة"
+                    >
+                        <TrashIcon className="w-4 h-4" />
+                    </button>
                 )}
-                {message.text && <p className="text-sm break-words">{message.text}</p>}
+                <div className={`max-w-xs p-3 rounded-2xl ${isSender ? 'bg-blue-500 text-white rounded-br-lg' : 'bg-gray-200 text-gray-800 rounded-bl-lg'}`}>
+                    {!isSender && <p className="text-xs font-bold mb-1 text-blue-600">{senderName}</p>}
+                    {message.imageUrl && (
+                        <a href={message.imageUrl} target="_blank" rel="noopener noreferrer" className="block my-1">
+                            <img src={message.imageUrl} alt="محتوى مرسل" className="rounded-lg max-w-full h-auto max-h-48 object-cover bg-gray-300" />
+                        </a>
+                    )}
+                    {message.text && <p className="text-sm break-words">{message.text}</p>}
+                </div>
             </div>
-            <p className={`text-xs text-gray-400 mt-1 px-1 ${isSender ? 'text-right' : 'text-left'}`}>{messageTime}</p>
+            <p className={`text-xs text-gray-400 mt-1 px-1 ${isSender ? 'text-right pl-8' : 'text-left'}`}>{messageTime}</p>
         </div>
     );
 };

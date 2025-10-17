@@ -108,12 +108,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                   </div>
               </div>
           );
-          case 'security': return (
-              <div className="space-y-4">
-                  <Input name="doctorPassword" type="password" label="كلمة مرور الطبيب" value={localSettings.doctorPassword || ''} onChange={handleChange} icon={<LockClosedIcon className="w-4 h-4 text-gray-400"/>} />
-                  <Input name="secretaryPassword" type="password" label="كلمة مرور السكرتير" value={localSettings.secretaryPassword || ''} onChange={handleChange} icon={<LockClosedIcon className="w-4 h-4 text-gray-400"/>} />
-              </div>
-          );
           default: return null;
       }
   }
@@ -135,7 +129,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                     <Tab name="الخدمات" id="services" activeTab={activeTab} setActiveTab={setActiveTab} />
                     <Tab name="المظهر" id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} />
                     <Tab name="الحقول" id="fields" activeTab={activeTab} setActiveTab={setActiveTab} />
-                    <Tab name="الأمان" id="security" activeTab={activeTab} setActiveTab={setActiveTab} />
                 </nav>
             </div>
             {renderTabContent()}

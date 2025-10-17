@@ -25,15 +25,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
       setMessage({ text: 'يرجى إدخال اسم المراجع وتاريخ الزيارة', type: 'error' });
       return;
     }
-    // Validation for numeric fields
-    if (age && isNaN(parseInt(age, 10))) {
-        setMessage({ text: 'يرجى إدخال عمر صحيح (أرقام فقط)', type: 'error' });
+    
+    // Improved validation for numeric fields
+    const ageNum = parseInt(age, 10);
+    if (age && (isNaN(ageNum) || ageNum < 0)) {
+        setMessage({ text: 'يرجى إدخال عمر صحيح (رقم موجب)', type: 'error' });
         return;
     }
-    if (amountPaid && isNaN(parseFloat(amountPaid))) {
-        setMessage({ text: 'يرجى إدخال مبلغ صحيح (أرقام فقط)', type: 'error' });
+
+    const amountNum = parseFloat(amountPaid);
+    if (amountPaid && (isNaN(amountNum) || amountNum < 0)) {
+        setMessage({ text: 'يرجى إدخال مبلغ صحيح (رقم موجب)', type: 'error' });
         return;
     }
+    
+    const phoneRegex = /^[0-9\s+()-]*$/;
+    if (phone && !phoneRegex.test(phone)) {
+        setMessage({ text: 'رقم الهاتف يحتوي على رموز غير صالحة.', type: 'error' });
+        return;
+    }
+
 
     setIsSubmitting(true);
     setMessage(null);
@@ -46,8 +57,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ settings }) => {
         phone,
         reason,
         visitDate: dateForVisit,
-        age: age ? parseInt(age, 10) : undefined,
-        amountPaid: amountPaid ? parseFloat(amountPaid) : undefined,
+        age: age ? ageNum : undefined,
+        amountPaid: amountPaid ? amountNum : undefined,
         showDetailsToPublic: showDetails
       });
 

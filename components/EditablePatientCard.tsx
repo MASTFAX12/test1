@@ -21,18 +21,25 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) {
+    if (!name.trim()) {
       toast.error('اسم المراجع مطلوب.');
       return;
     }
 
-    // Validation for numeric fields
-    if (age && isNaN(parseInt(age, 10))) {
-        toast.error('يرجى إدخال عمر صحيح (أرقام فقط).');
+    // Improved validation for numeric fields
+    const ageNum = parseInt(age, 10);
+    if (age && (isNaN(ageNum) || ageNum < 0)) {
+        toast.error('يرجى إدخال عمر صحيح (رقم موجب).');
         return;
     }
-    if (amountPaid && isNaN(parseFloat(amountPaid))) {
-        toast.error('يرجى إدخال مبلغ صحيح (أرقام فقط).');
+    const amountNum = parseFloat(amountPaid);
+    if (amountPaid && (isNaN(amountNum) || amountNum < 0)) {
+        toast.error('يرجى إدخال مبلغ صحيح (رقم موجب).');
+        return;
+    }
+    const phoneRegex = /^[0-9\s+()-]*$/;
+    if (phone && !phoneRegex.test(phone)) {
+        toast.error('رقم الهاتف يحتوي على رموز غير صالحة.');
         return;
     }
     
@@ -42,8 +49,8 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
           name, 
           phone, 
           reason,
-          age: age ? parseInt(age, 10) : undefined,
-          amountPaid: amountPaid ? parseFloat(amountPaid) : undefined,
+          age: age ? ageNum : null,
+          amountPaid: amountPaid ? amountNum : null,
           showDetailsToPublic: showDetails
       });
       toast.success('تم حفظ التعديلات.');

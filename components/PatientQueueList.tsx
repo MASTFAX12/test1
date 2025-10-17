@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, FC, DragEvent, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { PatientVisit, Service, CustomLineItem } from '../types.ts';
@@ -13,7 +15,8 @@ import {
   MagnifyingGlassIcon,
   ArchiveBoxIcon,
   XMarkIcon,
-  PhoneIcon
+  PhoneIcon,
+  UserIcon,
 } from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
 import PaymentInputCard from './PaymentInputCard.tsx';
@@ -50,7 +53,6 @@ interface PatientCardProps {
   onSetServices: () => void;
   onShowHistory: () => void;
   isBeingCalled?: boolean;
-  onReturnToWaiting: (patientId: string) => void;
   onMarkAsDone: (patient: PatientVisit) => void;
   isDraggable?: boolean;
   onDragStart?: (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => void;
@@ -68,7 +70,6 @@ const PatientCard: FC<PatientCardProps> = ({
   role,
   onUpdateStatus,
   onSetInProgress,
-  onCancel,
   onDeleteClick,
   onCall,
   onEdit,
@@ -76,7 +77,6 @@ const PatientCard: FC<PatientCardProps> = ({
   onSetServices,
   onShowHistory,
   isBeingCalled,
-  onReturnToWaiting,
   onMarkAsDone,
   isDraggable,
   onDragStart,
@@ -88,26 +88,26 @@ const PatientCard: FC<PatientCardProps> = ({
   isNewlyAddedToPayment
 }) => {
   const statusConfig = {
-    [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800' },
-    [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-100 text-red-800' },
-    [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', color: 'bg-yellow-100 text-yellow-800' },
-    [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-100 text-green-800' },
-    [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-100 text-gray-800' },
-    [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-100 text-gray-800' },
+    [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800', borderColor: 'border-blue-500' },
+    [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-100 text-red-800', borderColor: 'border-red-500' },
+    [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', color: 'bg-yellow-100 text-yellow-800', borderColor: 'border-yellow-500' },
+    [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-100 text-green-800', borderColor: 'border-green-500' },
+    [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-400' },
+    [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-400' },
   };
 
-  const { text: statusText, color: statusColor } = statusConfig[patient.status] || {};
+  const { text: statusText, color: statusColor, borderColor } = statusConfig[patient.status] || {};
   const isWaiting = patient.status === PatientStatus.Waiting;
 
   const cardClasses = [
-    'bg-white rounded-xl p-4 mb-3 shadow-md border-l-4 transition-all duration-300',
-    isBeingCalled ? 'border-blue-500 ring-2 ring-blue-500 animate-pulse' : 'border-transparent',
+    'bg-white rounded-xl p-4 shadow-sm border-r-4 transition-all duration-300 relative group',
+    isBeingCalled ? 'ring-2 ring-[var(--theme-color)] animate-pulse' : 'hover:shadow-md',
     isDraggable ? 'cursor-grab' : '',
-    isNextToPay ? 'border-yellow-400 ring-2 ring-yellow-400' : ''
+    isNextToPay ? 'ring-2 ring-yellow-400' : '',
+    borderColor
   ].join(' ');
 
-  const actionButtonClasses = "w-8 h-8 flex items-center justify-center rounded-full text-white transition-colors duration-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed";
-
+  const actionButtonClasses = "w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-[var(--theme-color)] hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
     <div 
@@ -124,30 +124,27 @@ const PatientCard: FC<PatientCardProps> = ({
           {index !== undefined && <span className="flex-shrink-0 bg-gray-200 text-gray-700 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center">{index + 1}</span>}
           <div className="flex-grow">
             <h3 className="font-bold text-gray-800 text-lg">{patient.name}</h3>
-            {patient.reason && patient.showDetailsToPublic && <p className="text-sm text-gray-500">{patient.reason}</p>}
+            {patient.reason && patient.showDetailsToPublic && <p className="text-sm text-gray-500 mt-1">{patient.reason}</p>}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
             <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusText}</span>
-            {isNextToPay && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900">التالي للدفع</span>}
-            {isNewlyAddedToPayment && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 animate-pulse">جديد للدفع</span>}
+            {isNextToPay && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900 mt-1">التالي للدفع</span>}
+            {isNewlyAddedToPayment && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 mt-1 animate-pulse">جديد للدفع</span>}
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-2">
-        <p>العمر: {patient.age || 'غير محدد'}</p>
-        {patient.phone && (
-            <div className="flex items-center gap-1">
-                <PhoneIcon className="w-4 h-4 text-gray-400" />
-                <span>{patient.phone}</span>
-            </div>
-        )}
-        <p>المبلغ المطلوب: <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></p>
+      
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
+        {patient.phone && <div className="flex items-center gap-2"><PhoneIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">الهاتف:</span> {patient.phone}</div>}
+        <div className="flex items-center gap-2 col-span-2"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المبلغ المطلوب:</span> <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></div>
       </div>
-
-      <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2 justify-end items-center">
+      
+      {/* Action buttons are now absolutely positioned for a cleaner look on hover */}
+      <div className="absolute bottom-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/50 backdrop-blur-sm p-1 rounded-lg">
           {/* Actions for All Roles */}
           {patient.patientProfileId && (
-            <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={`${actionButtonClasses} bg-indigo-500 hover:bg-indigo-600`}><ArchiveBoxIcon className="w-5 h-5" /></button>
+            <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={actionButtonClasses}><ArchiveBoxIcon className="w-5 h-5" /></button>
           )}
 
           {/* SECRETARY ACTIONS */}
@@ -155,18 +152,17 @@ const PatientCard: FC<PatientCardProps> = ({
             <>
               {isWaiting && (
                 <>
-                  <button onMouseDown={(e) => e.stopPropagation()} title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className={`${actionButtonClasses} bg-blue-500 hover:bg-blue-600`}><BellIcon className="w-5 h-5" /></button>
-                  <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className={actionButtonClasses}><BellIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                 </>
               )}
               {patient.status === PatientStatus.PendingPayment && (
-                <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={`${actionButtonClasses} bg-yellow-500 hover:bg-yellow-600`}><CurrencyDollarIcon className="w-5 h-5" /></button>
+                <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={actionButtonClasses}><CurrencyDollarIcon className="w-5 h-5" /></button>
               )}
-              
                {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && (
                  <>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><PencilIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="أرشفة أو حذف" onClick={() => onDeleteClick(patient)} className={`${actionButtonClasses} bg-red-600 hover:bg-red-700`}><TrashIcon className="w-5 h-5" /></button>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={actionButtonClasses}><PencilIcon className="w-5 h-5" /></button>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="أرشفة أو حذف" onClick={() => onDeleteClick(patient)} className={actionButtonClasses}><TrashIcon className="w-5 h-5" /></button>
                  </>
                )}
             </>
@@ -176,17 +172,16 @@ const PatientCard: FC<PatientCardProps> = ({
           {role === Role.Doctor && (
             <>
               {isWaiting && (
-                <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
+                <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onSetInProgress(patient.id)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
               )}
               {patient.status === PatientStatus.InProgress && (
                 <>
-                  <button onMouseDown={(e) => e.stopPropagation()} title="تحديد الخدمات والرسوم" onClick={onSetServices} className={`${actionButtonClasses} bg-blue-500 hover:bg-blue-600`}><Cog8ToothIcon className="w-5 h-5" /></button>
-                  <button onMouseDown={(e) => e.stopPropagation()} title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className={`${actionButtonClasses} bg-green-500 hover:bg-green-600`}><CheckIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="تحديد الخدمات والرسوم" onClick={onSetServices} className={actionButtonClasses}><Cog8ToothIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                 </>
               )}
-              {/* Allow doctor to return patient to waiting from any non-waiting state for flexibility */}
                {patient.status !== PatientStatus.Waiting && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && (
-                   <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={`${actionButtonClasses} bg-gray-500 hover:bg-gray-600`}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
+                   <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                )}
             </>
           )}
@@ -203,17 +198,21 @@ const QueueSection: FC<{
   onDrop: (e: DragEvent<HTMLDivElement>) => void;
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
-}> = ({ title, children, count, isDragOver, ...dragProps }) => (
+  color: string;
+}> = ({ title, children, count, isDragOver, color, ...dragProps }) => (
     <div 
       {...dragProps}
-      className={`bg-slate-200/50 p-3 rounded-xl shadow-inner border border-slate-300/50 flex flex-col transition-colors duration-300 ${isDragOver ? 'bg-blue-100 border-blue-300' : ''}`}
+      className={`bg-gray-100/70 p-3 rounded-xl border border-gray-200/80 flex flex-col transition-colors duration-300 h-full ${isDragOver ? 'bg-blue-100 border-blue-300' : ''}`}
     >
-      <h2 className="text-lg font-bold text-slate-700 mb-3 flex-shrink-0 px-1">{title} ({count})</h2>
-      <div className="space-y-3 overflow-y-auto pr-2 -mr-2 max-h-[calc(100vh-280px)]">
+      <div className="flex justify-between items-center mb-4 flex-shrink-0 px-1">
+        <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+        <span className={`text-sm font-bold px-2.5 py-1 rounded-full text-white ${color}`}>{count}</span>
+      </div>
+      <div className="space-y-3 overflow-y-auto pr-2 -mr-2 flex-grow">
         {children}
         {count === 0 && (
-            <div className={`flex items-center justify-center min-h-[100px] rounded-lg ${isDragOver ? 'border-2 border-dashed border-blue-400' : ''}`}>
-              <p className="text-center text-slate-500 py-4">لا يوجد مراجعون في هذه القائمة.</p>
+            <div className={`flex items-center justify-center min-h-[120px] rounded-lg ${isDragOver ? 'border-2 border-dashed border-blue-400' : ''}`}>
+              <p className="text-center text-slate-500 py-4">لا يوجد مراجعون.</p>
             </div>
         )}
       </div>
@@ -242,6 +241,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [draggedPatient, setDraggedPatient] = useState<PatientVisit | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<PatientStatus | null>(null);
   const [newlyAddedToPayment, setNewlyAddedToPayment] = useState<Set<string>>(new Set());
+  const [visibleArchivedCount, setVisibleArchivedCount] = useState(10);
   const prevPatients = usePrevious(patients);
 
   useEffect(() => {
@@ -283,6 +283,8 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       return acc;
     }, { waiting: [], inProgress: [], pendingPayment: [], completedOrCancelled: [] } as Record<string, PatientVisit[]>);
     lists.pendingPayment.sort((a, b) => (b.sentToPaymentAt?.toMillis() || 0) - (a.sentToPaymentAt?.toMillis() || 0));
+    // Sort archived patients by creation time, newest first
+    lists.completedOrCancelled.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     return lists;
   }, [filteredPatients]);
   
@@ -291,8 +293,6 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     setPaymentPatientId(null);
     toast.success('تم تسجيل الدفعة بنجاح.');
   }
-
-  const handleReturnToWaiting = (patientId: string) => onUpdateStatus(patientId, PatientStatus.Waiting);
 
   const handleSetInProgress = (patientId: string) => {
     if (inProgress.length > 0 && !inProgress.some(p => p.id === patientId)) {
@@ -350,26 +350,24 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     e.stopPropagation();
     e.currentTarget.style.borderTop = "";
     if (!draggedPatient || draggedPatient.id === targetPatientId || draggedPatient.status !== PatientStatus.Waiting) return;
-    const originalWaitingList = patients.filter(p => p.status === PatientStatus.Waiting);
-    const draggedIndex = originalWaitingList.findIndex(p => p.id === draggedPatient.id);
-    const targetIndex = originalWaitingList.findIndex(p => p.id === targetPatientId);
-    if (draggedIndex === -1 || targetIndex === -1) return;
-    let newTimeMillis: number;
-    const targetPatientTime = originalWaitingList[targetIndex].createdAt.toMillis();
-    if (draggedIndex < targetIndex) {
-      const nextPatientTime = targetIndex + 1 < originalWaitingList.length ? originalWaitingList[targetIndex + 1].createdAt.toMillis() : targetPatientTime + 2000;
-      newTimeMillis = (targetPatientTime + nextPatientTime) / 2;
-    } else {
-      const prevPatientTime = targetIndex > 0 ? originalWaitingList[targetIndex - 1].createdAt.toMillis() : targetPatientTime - 2000;
-      newTimeMillis = (targetPatientTime + prevPatientTime) / 2;
-    }
+    
+    // The list of potential neighbors does not include the dragged patient.
+    const waitingList = patients.filter(p => p.status === PatientStatus.Waiting && p.id !== draggedPatient.id);
+    
+    const targetIndex = waitingList.findIndex(p => p.id === targetPatientId);
+    if (targetIndex === -1) return;
+
+    const targetPatientTime = waitingList[targetIndex].createdAt.toMillis();
+    const prevPatientTime = targetIndex > 0 ? waitingList[targetIndex - 1].createdAt.toMillis() : targetPatientTime - 2000;
+    
+    const newTimeMillis = (prevPatientTime + targetPatientTime) / 2;
     onReorder(draggedPatient.id, Timestamp.fromMillis(newTimeMillis));
   };
 
   const handleDragOverReorder = (e: DragEvent<HTMLDivElement>) => {
     if (draggedPatient?.status === PatientStatus.Waiting) {
         e.preventDefault();
-        e.currentTarget.style.borderTop = "2px solid #3b82f6";
+        e.currentTarget.style.borderTop = "2px solid var(--theme-color)";
     }
   };
   const handleDragLeaveReorder = (e: DragEvent<HTMLDivElement>) => e.currentTarget.style.borderTop = "";
@@ -397,7 +395,6 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onSetServices={() => setServiceSelectionPatient(patient)}
         onShowHistory={() => setHistoryPatient(patient)}
         isBeingCalled={callingPatient?.id === patient.id}
-        onReturnToWaiting={handleReturnToWaiting}
         onMarkAsDone={handleMarkAsDone}
         isDraggable={role === Role.Secretary && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status)}
         onDragStart={handleDragStart}
@@ -413,32 +410,40 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
 
   return (
     <>
-      <div className="flex flex-col">
+      <div className="flex flex-col h-full">
         <div className="mb-4 flex-shrink-0">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <MagnifyingGlassIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder="ابحث عن مراجع بالاسم..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-4 pr-10 py-2.5 bg-white text-gray-900 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-blue-500 transition-shadow duration-200"
+              className="form-input pr-12"
             />
             {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"><XMarkIcon className="w-5 h-5" /></button>}
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <QueueSection title="الانتظار" count={waiting.length} isDragOver={dragOverColumn === PatientStatus.Waiting} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Waiting)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Waiting)}>
+        <div className="grid grid-rows-1 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-grow min-h-0">
+          <QueueSection title="الانتظار" count={waiting.length} isDragOver={dragOverColumn === PatientStatus.Waiting} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Waiting)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Waiting)} color="bg-blue-500">
             {waiting.map((p, i) => renderPatient(p, { index: i }))}
           </QueueSection>
-          <QueueSection title="قيد المعالجة" count={inProgress.length} isDragOver={dragOverColumn === PatientStatus.InProgress} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.InProgress)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.InProgress)}>
+          <QueueSection title="قيد المعالجة" count={inProgress.length} isDragOver={dragOverColumn === PatientStatus.InProgress} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.InProgress)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.InProgress)} color="bg-red-500">
             {inProgress.map(p => renderPatient(p))}
           </QueueSection>
-          <QueueSection title="بانتظار الدفع" count={pendingPayment.length} isDragOver={dragOverColumn === PatientStatus.PendingPayment} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.PendingPayment)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.PendingPayment)}>
+          <QueueSection title="بانتظار الدفع" count={pendingPayment.length} isDragOver={dragOverColumn === PatientStatus.PendingPayment} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.PendingPayment)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.PendingPayment)} color="bg-yellow-500">
             {pendingPayment.map((p, i) => renderPatient(p, { isNextToPay: i === 0, isNewlyAddedToPayment: newlyAddedToPayment.has(p.id) }))}
           </QueueSection>
-          <QueueSection title="الأرشيف" count={completedOrCancelled.length} isDragOver={dragOverColumn === PatientStatus.Cancelled} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Cancelled)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Cancelled)}>
-            {completedOrCancelled.map(p => renderPatient(p))}
+          <QueueSection title="الأرشيف" count={completedOrCancelled.length} isDragOver={dragOverColumn === PatientStatus.Cancelled} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Cancelled)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Cancelled)} color="bg-gray-500">
+            {completedOrCancelled.slice(0, visibleArchivedCount).map(p => renderPatient(p))}
+            {completedOrCancelled.length > visibleArchivedCount && (
+                <button 
+                    onClick={() => setVisibleArchivedCount(prev => prev + 10)} 
+                    className="w-full mt-2 text-center text-sm font-semibold text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition"
+                >
+                    عرض المزيد
+                </button>
+            )}
           </QueueSection>
         </div>
       </div>

@@ -81,7 +81,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
               setPassword(e.target.value);
               setError('');
             }}
-            className="shadow-inner appearance-none border border-white/20 bg-white/10 rounded w-full py-3 px-4 text-white leading-tight focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="form-input"
             autoFocus
           />
         </div>

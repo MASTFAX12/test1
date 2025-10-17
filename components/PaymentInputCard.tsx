@@ -44,14 +44,14 @@ const PaymentInputCard: React.FC<PaymentInputCardProps> = ({ patient, onCancel, 
             <p className="font-bold text-gray-800">تسجيل دفعة للمراجع: <span className="text-blue-600">{patient.name}</span></p>
         </div>
         <div>
-            <label htmlFor="paymentAmount" className="text-xs font-bold text-gray-600">المبلغ المدفوع</label>
+            <label htmlFor="paymentAmount" className="text-xs font-bold text-gray-600 mb-1 block">المبلغ المدفوع</label>
             <input 
                 id="paymentAmount"
                 type="number" 
                 step="any"
                 value={amount} 
                 onChange={(e) => setAmount(e.target.value)} 
-                className="w-full mt-1 px-2 py-1.5 border border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm text-gray-900" 
+                className="form-input" 
                 required 
                 autoFocus 
                 placeholder="مثال: 25000"

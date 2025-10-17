@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Timestamp } from 'firebase/firestore';
@@ -17,8 +18,7 @@ import {
 } from './services/firebase.ts';
 import { playNotificationSound } from './utils/audio.ts';
 
-import AdminHeader from './components/AdminHeader.tsx';
-import PatientQueueList from './components/PatientQueueList.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
 import CurrentPatientCard from './components/CurrentPatientCard.tsx';
 import LoginModal from './components/LoginModal.tsx';
 import Marquee from './components/Marquee.tsx';
@@ -26,9 +26,9 @@ import TimeDisplay from './components/TimeDisplay.tsx';
 import CallingNotification from './components/CallingNotification.tsx';
 import SettingsModal from './components/SettingsModal.tsx';
 import ProfilePictureModal from './components/ProfilePictureModal.tsx';
-import AdminSidebar from './components/AdminSidebar.tsx';
 import HelpModal from './components/HelpModal.tsx';
-import { Cog8ToothIcon, ArrowUturnLeftIcon } from './components/Icons.tsx';
+import AddPatientModal from './components/AddPatientModal.tsx';
+import { ArrowUturnLeftIcon, LockClosedIcon } from './components/Icons.tsx';
 
 function App() {
   const { patients, loading: queueLoading } = useQueue();
@@ -39,6 +39,7 @@ function App() {
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
   const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [isHelpModalOpen, setHelpModalOpen] = useState(false);
+  const [isAddPatientModalOpen, setAddPatientModalOpen] = useState(false);
   
   const [callingPatient, setCallingPatient] = useState<PatientVisit | null>(null);
   const [callTimeoutId, setCallTimeoutId] = useState<number | null>(null);
@@ -54,7 +55,7 @@ function App() {
     } catch (e) {
         console.error("Failed to save theme to localStorage", e);
     }
-    document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f1f5f9'; // A lighter gray for admin
+    document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f8fafc'; // Use a lighter, cleaner gray for admin
     document.body.dir = 'rtl';
   }, [settings.themeColor, role]);
 
@@ -191,46 +192,57 @@ function App() {
 
   // PUBLIC VIEW
   if (role === Role.Public) {
+    const PUBLIC_DISPLAY_LIMIT = 15;
+    const displayedWaiting = waitingPatients.slice(0, PUBLIC_DISPLAY_LIMIT);
+
     return (
-      <main className="container mx-auto p-4 md:p-6 grid grid-rows-[auto_1fr_auto] gap-6 h-screen">
-        <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-center md:text-right">
-            <h1 className="text-4xl md:text-5xl font-bold text-white">{settings.clinicName}</h1>
-            <p className="text-lg md:text-xl text-gray-300">{settings.doctorName} - {settings.clinicSpecialty}</p>
-          </div>
-          <TimeDisplay />
-        </header>
+      <>
+        <main className="container mx-auto p-4 md:p-6 grid grid-rows-[auto_1fr_auto] gap-6 h-screen">
+          <header className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-center md:text-right">
+              <h1 className="text-4xl md:text-5xl font-bold text-white">{settings.clinicName}</h1>
+              <p className="text-lg md:text-xl text-gray-300">{settings.doctorName} - {settings.clinicSpecialty}</p>
+            </div>
+            <TimeDisplay />
+          </header>
 
-        <div className="grid md:grid-cols-3 gap-6 overflow-hidden">
-          <div className="md:col-span-2">
-            <CurrentPatientCard 
-              patient={inProgressPatient} 
-              callingPatient={callingPatient}
-              title="في غرفة الفحص"
-              noPatientText="لا يوجد مراجع حالياً"
-              callingTitle="الرجاء التوجه لغرفة الفحص"
-            />
+          <div className="grid md:grid-cols-3 gap-6 overflow-hidden">
+            <div className="md:col-span-2">
+              <CurrentPatientCard 
+                patient={inProgressPatient} 
+                callingPatient={callingPatient}
+                title="في غرفة الفحص"
+                noPatientText="لا يوجد مراجع حالياً"
+                callingTitle="الرجاء التوجه لغرفة الفحص"
+              />
+            </div>
+            <div className="bg-white/5 backdrop-blur-lg p-4 rounded-2xl shadow-lg border border-white/20 flex flex-col">
+              <h2 className="text-2xl font-bold text-center text-white mb-4 flex-shrink-0">قائمة الانتظار ({waitingPatients.length})</h2>
+              <ul className="space-y-3 overflow-y-auto h-full pr-2">
+                {displayedWaiting.length > 0 ? (
+                  displayedWaiting.map((p, index) => (
+                    <li key={p.id} className="bg-white/10 p-3 rounded-lg text-xl md:text-2xl font-semibold text-white shadow-sm flex items-center gap-4 animate-fade-in">
+                      <span className="bg-[var(--theme-color)] text-white rounded-full h-9 w-9 flex items-center justify-center font-bold text-base flex-shrink-0 shadow-md">{index + 1}</span>
+                      {p.name}
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-center text-gray-400 pt-8">لا يوجد مراجعون في الانتظار.</p>
+                )}
+                 {waitingPatients.length > PUBLIC_DISPLAY_LIMIT && (
+                    <li className="text-center text-gray-400 pt-2 text-lg">
+                        ... و {waitingPatients.length - PUBLIC_DISPLAY_LIMIT} آخرون في الانتظار
+                    </li>
+                 )}
+              </ul>
+            </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-lg p-4 rounded-2xl shadow-lg border border-white/20 flex flex-col">
-            <h2 className="text-2xl font-bold text-center text-white mb-4 flex-shrink-0">قائمة الانتظار</h2>
-            <ul className="space-y-3 overflow-y-auto h-full pr-2">
-              {waitingPatients.length > 0 ? (
-                waitingPatients.map((p, index) => (
-                  <li key={p.id} className="bg-white/20 p-3 rounded-lg text-xl md:text-2xl font-semibold text-white shadow-sm flex items-center gap-3">
-                    <span className="bg-blue-500 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-base flex-shrink-0">{index + 1}</span>
-                    {p.name}
-                  </li>
-                ))
-              ) : (
-                <p className="text-center text-gray-400 pt-8">لا يوجد مراجعون في الانتظار.</p>
-              )}
-            </ul>
-          </div>
-        </div>
 
-        <footer className="flex justify-between items-center gap-4">
-          <Marquee text={settings.publicMessage} speed={settings.marqueeSpeed} />
-          <button
+          <footer className="flex justify-between items-center gap-4">
+            <Marquee text={settings.publicMessage} speed={settings.marqueeSpeed} />
+          </footer>
+        </main>
+        <button
             onClick={() => {
               if (loggedInUserRole !== Role.None && loggedInUserRole !== Role.Public) {
                 setRole(loggedInUserRole);
@@ -238,67 +250,58 @@ function App() {
                 setLoginModalOpen(true);
               }
             }}
-            className="bg-white/20 backdrop-blur-lg p-3 rounded-full shadow-lg border border-white/20 hover:bg-white/30 transition flex-shrink-0"
-            title={loggedInUserRole !== Role.None && loggedInUserRole !== Role.Public ? "العودة للوحة التحكم" : "تسجيل الدخول"}
+            className="fixed bottom-6 right-6 bg-white/20 backdrop-blur-lg p-3 rounded-full shadow-lg border border-white/20 hover:bg-white/30 transition-transform hover:scale-105 flex items-center gap-2 group"
           >
             {loggedInUserRole !== Role.None && loggedInUserRole !== Role.Public ? 
-              <ArrowUturnLeftIcon className="w-6 h-6 text-white" /> : 
-              <Cog8ToothIcon className="w-6 h-6 text-white"/>
+              <>
+                <ArrowUturnLeftIcon className="w-6 h-6 text-white" />
+                <span className="text-white font-semibold pr-2 hidden group-hover:block animate-fade-in">العودة للوحة التحكم</span>
+              </>
+               : 
+              <>
+                <LockClosedIcon className="w-6 h-6 text-white"/>
+                <span className="text-white font-semibold pr-2 hidden group-hover:block animate-fade-in">تسجيل الدخول للإدارة</span>
+              </>
             }
           </button>
-        </footer>
         {isLoginModalOpen && <LoginModal onClose={() => setLoginModalOpen(false)} onLoginSuccess={handleLoginSuccess} settings={settings} />}
-      </main>
+      </>
     );
   }
 
   // ADMIN VIEW (Doctor or Secretary)
   return (
     <>
-      <div className="h-screen flex flex-col bg-slate-100">
-        <AdminHeader 
-          role={role} 
-          onLogout={handleLogout} 
-          onShowPublicView={() => setRole(Role.Public)}
-          onOpenProfileModal={() => setProfileModalOpen(true)}
-          onOpenHelpModal={() => setHelpModalOpen(true)}
-          profilePicUrl={role === Role.Doctor ? settings.doctorProfilePicUrl : settings.secretaryProfilePicUrl}
-        />
-        <main className="flex-grow p-4 md:p-6 flex flex-col lg:flex-row gap-6 overflow-hidden items-start">
-          <div className="flex-grow min-w-0 w-full">
-            <PatientQueueList 
-                patients={patients} 
-                role={role}
-                onUpdateStatus={handleUpdateStatus}
-                onCancel={handleCancel}
-                onDeletePatient={handleDeletePatient}
-                onCall={handleCallPatient}
-                onReorder={handleReorder}
-                callingPatient={callingPatient}
-                availableServices={settings.services || []}
-                onSetPatientServices={handleSetServices}
-            />
-          </div>
-          <AdminSidebar 
-            settings={settings}
-            patients={patients}
-            role={role}
-          />
-        </main>
-      </div>
+      <AdminPanel
+        role={role}
+        settings={settings}
+        patients={patients}
+        callingPatient={callingPatient}
+        onLogout={handleLogout}
+        onShowPublicView={() => setRole(Role.Public)}
+        onOpenProfileModal={() => setProfileModalOpen(true)}
+        onOpenHelpModal={() => setHelpModalOpen(true)}
+        onOpenSettingsModal={() => setSettingsModalOpen(true)}
+        onOpenAddPatientModal={() => setAddPatientModalOpen(true)}
+        onUpdateStatus={handleUpdateStatus}
+        onCancel={handleCancel}
+        onDeletePatient={handleDeletePatient}
+        onCall={handleCallPatient}
+        onReorder={handleReorder}
+        onSetPatientServices={handleSetServices}
+      />
       
-      <Toaster />
-      {role === Role.Doctor && (
-        <button 
-            onClick={() => setSettingsModalOpen(true)} 
-            className="fixed bottom-5 left-5 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition z-40"
-            title="إعدادات الطبيب"
-        >
-            <Cog8ToothIcon className="w-6 h-6" />
-        </button>
-      )}
+      <Toaster toastOptions={{
+          style: {
+            fontFamily: 'Tajawal, sans-serif',
+          },
+      }} />
+
+      {/* Modals */}
       <CallingNotification patient={notifiedPatient} onClose={() => setNotifiedPatient(null)} />
       {isSettingsModalOpen && role === Role.Doctor && <SettingsModal settings={settings} onClose={() => setSettingsModalOpen(false)} />}
+      {isAddPatientModalOpen && role === Role.Secretary && <AddPatientModal settings={settings} onClose={() => setAddPatientModalOpen(false)} />}
+      
       {isProfileModalOpen && (role === Role.Doctor || role === Role.Secretary) && (
           <ProfilePictureModal
               onClose={() => setProfileModalOpen(false)}

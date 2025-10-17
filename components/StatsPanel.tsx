@@ -2,12 +2,11 @@ import React, { useState, useEffect, useMemo, FC } from 'react';
 import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, Bar, Line, CartesianGrid } from 'recharts';
 import type { PatientVisit } from '../types.ts';
 import { PatientStatus } from '../types.ts';
-import { ChartBarIcon, XMarkIcon, SpinnerIcon, CurrencyDollarIcon, UserIcon } from './Icons.tsx';
+import { SpinnerIcon, CurrencyDollarIcon, UserIcon } from './Icons.tsx';
 import { getPatientsByDateRange } from '../services/firebase.ts';
 
 interface StatsPanelProps {
   patients: PatientVisit[];
-  isEmbedded?: boolean;
 }
 
 type DateRange = 'today' | 'week' | 'month';
@@ -29,16 +28,13 @@ const getDateRangeBoundaries = (range: DateRange): { startDate: Date, endDate: D
 };
 
 
-const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, isEmbedded = false }) => {
-  const [isOpen, setIsOpen] = useState(isEmbedded);
+const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
   const [dateRange, setDateRange] = useState<DateRange>('today');
   const [statsData, setStatsData] = useState<PatientVisit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isOpen) return;
-
       if (dateRange === 'today') {
         setStatsData(todayPatients);
         return;
@@ -57,7 +53,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, isEmbe
       }
     };
     fetchData();
-  }, [dateRange, todayPatients, isOpen]);
+  }, [dateRange, todayPatients]);
   
   const todaySummary = useMemo(() => {
       const doneToday = todayPatients.filter(p => p.status === PatientStatus.Done || p.status === PatientStatus.Skipped);
@@ -120,22 +116,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, isEmbe
     return allDaysData;
   }, [statsData, dateRange]);
 
-
-  if (!isOpen) {
-    return (
-        <button 
-            onClick={() => setIsOpen(true)} 
-            className="bg-purple-600 text-white w-16 h-16 rounded-full shadow-lg hover:bg-purple-700 flex items-center justify-center transition"
-            title="عرض الإحصائيات"
-        >
-            <ChartBarIcon className="w-8 h-8"/>
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center border-2 border-white">
-                {todayPatients.length}
-            </span>
-        </button>
-    );
-  }
-  
   const CustomTooltip: FC<any> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -149,23 +129,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, isEmbe
     return null;
   };
 
-  const containerClasses = isEmbedded 
-    ? "flex flex-col gap-4" 
-    : "bg-white/95 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-gray-200 w-[90vw] max-w-2xl animate-fade-in flex flex-col gap-4";
-
-
   return (
-    <div className={containerClasses}>
-       {!isEmbedded && (
-          <div className="flex justify-between items-center">
+    <div className="bg-white rounded-2xl shadow-lg w-full h-full flex flex-col gap-4 p-6">
+        <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-gray-800">إحصائيات الأداء</h2>
-            <button onClick={() => setIsOpen(false)} className="p-2 rounded-full hover:bg-gray-200">
-                <XMarkIcon className="w-5 h-5 text-gray-600"/>
-            </button>
-          </div>
-       )}
+        </div>
 
-        {/* Today's Summary */}
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-bold text-blue-800 mb-2 text-center">ملخص اليوم</h4>
             <div className="grid grid-cols-3 gap-2">
@@ -181,13 +150,13 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, isEmbe
           <DateButton label="الشهر" range="month" activeRange={dateRange} setRange={setDateRange} />
       </div>
 
-      <div className="relative">
+      <div className="relative flex-grow">
         {isLoading && (
             <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
                 <SpinnerIcon className="w-10 h-10 text-blue-600" />
             </div>
         )}
-        <div className="mt-2 h-48">
+        <div className="absolute inset-0 pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />

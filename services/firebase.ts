@@ -210,15 +210,20 @@ export const addChatMessage = async (message: {
   });
 };
 
+export const updateChatMessage = async (messageId: string, text: string) => {
+  if (!db) return;
+  const messageRef = doc(db, 'chat', messageId);
+  await updateDoc(messageRef, { text });
+};
+
 export const deleteChatMessage = async (messageId: string) => {
   if (!db) return;
   const messageRef = doc(db, 'chat', messageId);
   await deleteDoc(messageRef);
 };
 
-export const archiveOldChatMessages = async (): Promise<number> => {
+export const archiveAllChatMessages = async (): Promise<number> => {
   if (!db) return 0;
-  const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
   const chatCollectionRef = collection(db, 'chat');
   const archiveCollectionRef = collection(db, 'chat_archive');
 
@@ -227,7 +232,6 @@ export const archiveOldChatMessages = async (): Promise<number> => {
   while (true) {
     const q = query(
       chatCollectionRef, 
-      where('createdAt', '<', twentyFourHoursAgo),
       limit(250)
     );
     

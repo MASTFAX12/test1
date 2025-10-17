@@ -1,4 +1,3 @@
-// FIX: Provide full implementation for the CallingNotification component.
 import React from 'react';
 import type { PatientVisit } from '../types.ts';
 

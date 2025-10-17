@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase.ts';
@@ -14,17 +12,12 @@ export const useQueue = () => {
     const q = query(collection(db, 'queue'), orderBy('createdAt', 'asc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      try {
-        const patientsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as PatientVisit[];
-        setPatients(patientsData);
-        setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to parse patient data'));
-        setLoading(false);
-      }
+      const patientsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as PatientVisit[];
+      setPatients(patientsData);
+      setLoading(false);
     }, (err) => {
       setError(err);
       setLoading(false);

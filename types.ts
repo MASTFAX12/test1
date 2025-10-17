@@ -1,4 +1,3 @@
-// FIX: Changed `export type` to `import type` to make `Timestamp` available within this module.
 import type { Timestamp } from 'firebase/firestore';
 
 export enum PatientStatus {
@@ -33,7 +32,7 @@ export interface CustomLineItem {
 
 // Represents a single visit in the 'queue' collection
 export interface PatientVisit {
-  id: string;
+  id:string;
   patientProfileId: string; // Link to the PatientProfile
   name: string; // Denormalized for easy display
   phone: string | null;

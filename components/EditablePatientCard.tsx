@@ -63,7 +63,7 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
     }
   };
   
-  const inputClasses = "w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900";
+  const inputClasses = "form-input !p-2 !text-sm";
 
   return (
     <div className={`bg-blue-50 border-2 border-blue-400 rounded-xl p-4 mb-3 shadow-lg animate-fade-in ${isBeingCalled ? 'ring-4 ring-offset-2 ring-blue-500 animate-pulse' : ''}`}>

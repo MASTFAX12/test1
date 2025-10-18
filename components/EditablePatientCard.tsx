@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { PatientVisit } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
+import { SpinnerIcon, UserIcon, CakeIcon, PhoneIcon, PencilIcon as ReasonIcon, CurrencyDollarIcon } from './Icons.tsx';
 
 interface EditablePatientCardProps {
   patient: PatientVisit;
@@ -63,44 +64,76 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
     }
   };
   
-  const inputClasses = "form-input !p-2 !text-sm";
+  const iconClasses = "pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400";
+  const inputClasses = "form-input !pr-10";
+  const fieldWrapperClasses = "p-3 bg-slate-50/70 rounded-lg border border-slate-200/80";
 
   return (
-    <div className={`bg-blue-50 border-2 border-blue-400 rounded-xl p-4 mb-3 shadow-lg animate-fade-in ${isBeingCalled ? 'ring-4 ring-offset-2 ring-blue-500 animate-pulse' : ''}`}>
-      <form onSubmit={handleSave} className="space-y-3">
-        <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-600">الاسم</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClasses} required autoFocus />
-        </div>
-         <div className="grid grid-cols-2 gap-3">
-            <div>
-                 <label className="text-xs font-bold text-gray-600">العمر</label>
-                 <input type="text" inputMode="numeric" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className={inputClasses} />
+    <div className={`bg-white border-2 border-[var(--theme-color)] rounded-xl p-4 shadow-lg animate-fade-in ${isBeingCalled ? 'ring-4 ring-offset-2 ring-[var(--theme-color)] animate-pulse' : ''}`}>
+      <form onSubmit={handleSave}>
+        <div className="space-y-3">
+          
+          <div className={fieldWrapperClasses}>
+            <label htmlFor={`name-${patient.id}`} className="block text-sm font-medium text-slate-700 mb-1.5">الاسم</label>
+            <div className="relative">
+                <div className={iconClasses}><UserIcon className="w-5 h-5"/></div>
+                <input id={`name-${patient.id}`} type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputClasses} required autoFocus />
             </div>
-            <div>
-                 <label className="text-xs font-bold text-gray-600">المبلغ</label>
-                 <input type="text" inputMode="decimal" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={inputClasses} />
+          </div>
+          
+          <div className={fieldWrapperClasses}>
+            <label htmlFor={`age-${patient.id}`} className="block text-sm font-medium text-slate-700 mb-1.5">العمر</label>
+            <div className="relative">
+                <div className={iconClasses}><CakeIcon className="w-5 h-5"/></div>
+                <input id={`age-${patient.id}`} type="text" inputMode="numeric" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className={inputClasses} />
             </div>
-        </div>
-        <div>
-          <label className="text-xs font-bold text-gray-600">الهاتف</label>
-          <input type="tel" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className={inputClasses} />
-        </div>
-        <div>
-          <label className="text-xs font-bold text-gray-600">السبب</label>
-          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className={inputClasses} />
-        </div>
-         <div>
-          <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer text-sm">
-            <input type="checkbox" checked={showDetails} onChange={(e) => setShowDetails(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-            <span className="text-gray-700">إظهار للعامة</span>
+          </div>
+
+          <div className={fieldWrapperClasses}>
+            <label htmlFor={`phone-${patient.id}`} className="block text-sm font-medium text-slate-700 mb-1.5">الهاتف</label>
+            <div className="relative">
+                <div className={iconClasses}><PhoneIcon className="w-5 h-5"/></div>
+                <input id={`phone-${patient.id}`} type="tel" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className={inputClasses} />
+            </div>
+          </div>
+          
+          <div className={fieldWrapperClasses}>
+            <label htmlFor={`reason-${patient.id}`} className="block text-sm font-medium text-slate-700 mb-1.5">سبب الزيارة</label>
+            <div className="relative">
+                <div className={iconClasses}><ReasonIcon className="w-5 h-5"/></div>
+                <input id={`reason-${patient.id}`} type="text" value={reason} onChange={(e) => setReason(e.target.value)} className={inputClasses} />
+            </div>
+          </div>
+
+          <div className={fieldWrapperClasses}>
+            <label htmlFor={`amount-${patient.id}`} className="block text-sm font-medium text-slate-700 mb-1.5">المبلغ المدفوع</label>
+            <div className="relative">
+                <div className={iconClasses}><CurrencyDollarIcon className="w-5 h-5"/></div>
+                <input id={`amount-${patient.id}`} type="text" inputMode="decimal" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={inputClasses} />
+            </div>
+          </div>
+
+          <label htmlFor={`showDetails-${patient.id}`} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80 cursor-pointer hover:bg-slate-100/60 transition-colors">
+            <span className="font-medium text-slate-700 text-sm">إظهار سبب الزيارة على الشاشة العامة</span>
+            <div className="relative inline-flex items-center cursor-pointer">
+                <input
+                    id={`showDetails-${patient.id}`}
+                    type="checkbox"
+                    checked={showDetails}
+                    onChange={(e) => setShowDetails(e.target.checked)}
+                    className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] rtl:after:right-[1px] rtl:after:left-auto after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
+            </div>
           </label>
         </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button type="button" onClick={onCancel} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md transition duration-200 text-xs">
+        
+        <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-slate-200">
+          <button type="button" onClick={onCancel} className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
             إلغاء
           </button>
-          <button type="submit" disabled={isSaving} className="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-md transition duration-200 text-xs disabled:bg-gray-400">
+          <button type="submit" disabled={isSaving} className="w-40 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg shadow-md text-white bg-[var(--theme-color)] hover:opacity-90 disabled:bg-slate-400 transition-all transform active:scale-95">
+            {isSaving && <SpinnerIcon className="w-5 h-5" />}
             {isSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
           </button>
         </div>

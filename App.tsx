@@ -114,7 +114,16 @@ function App() {
 
   const handleUpdateStatus = async (id: string, status: PatientStatus) => {
     try {
-      await updatePatientStatus(id, status);
+      const patientToUpdate = patients.find(p => p.id === id);
+      const isReturningFromArchive = patientToUpdate && 
+        [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patientToUpdate.status);
+
+      if (status === PatientStatus.Waiting && isReturningFromArchive) {
+        // Re-queue the patient by updating status and timestamp to move to end of queue
+        await updatePatientDetails(id, { status: PatientStatus.Waiting, createdAt: Timestamp.now() });
+      } else {
+        await updatePatientStatus(id, status); // For other status changes
+      }
       toast.success('تم تحديث حالة المراجع.');
     } catch (error) {
       toast.error('فشل تحديث الحالة.');
@@ -165,9 +174,9 @@ function App() {
               servicesRendered: services,
               customLineItems: customItems,
               requiredAmount: requiredAmount,
+              status: PatientStatus.PendingPayment,
               sentToPaymentAt: Timestamp.now()
           });
-          await updatePatientStatus(patient.id, PatientStatus.PendingPayment);
           toast.success(`تم تحديد رسوم ${patient.name} وإرسالها للسكرتير.`);
       } catch (error) {
           toast.error('فشل في تحديد الرسوم.');

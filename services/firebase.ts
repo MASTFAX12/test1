@@ -113,7 +113,7 @@ export const updatePatientStatus = async (id: string, status: PatientStatusType)
   await updateDoc(patientRef, { status });
 };
 
-export const updatePatientDetails = async (id: string, details: Partial<Omit<PatientVisit, 'id' | 'createdAt'>>) => {
+export const updatePatientDetails = async (id: string, details: Partial<Omit<PatientVisit, 'id'>>) => {
   if (!db) return;
   const patientRef = doc(db, 'queue', id);
   

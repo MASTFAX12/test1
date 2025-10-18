@@ -258,6 +258,7 @@ const PatientCard: FC<PatientCardProps> = ({
 
   const { text: statusText, color: statusColor, borderColor } = statusConfig[patient.status] || {};
   const isWaiting = patient.status === PatientStatus.Waiting;
+  const isArchived = [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patient.status);
 
   const cardClasses = [
     'bg-white rounded-xl py-3 px-4 shadow-sm border-l-4 transition-all duration-300 relative group',
@@ -319,11 +320,14 @@ const PatientCard: FC<PatientCardProps> = ({
                 {patient.status === PatientStatus.PendingPayment && (
                   <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={actionButtonClasses}><CurrencyDollarIcon className="w-5 h-5" /></button>
                 )}
-                 {![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && (
+                 {!isArchived && (
                    <>
                       <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={actionButtonClasses}><PencilIcon className="w-5 h-5" /></button>
                       <button onMouseDown={(e) => e.stopPropagation()} title="أرشفة أو حذف" onClick={() => onDeleteClick(patient)} className={actionButtonClasses}><TrashIcon className="w-5 h-5" /></button>
                    </>
+                 )}
+                 {isArchived && (
+                    <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                  )}
               </>
             )}
@@ -341,8 +345,11 @@ const PatientCard: FC<PatientCardProps> = ({
                     <button onMouseDown={(e) => e.stopPropagation()} title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                   </>
                 )}
-                 {patient.status !== PatientStatus.Waiting && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status) && (
+                 {patient.status !== PatientStatus.Waiting && !isArchived && (
                      <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
+                 )}
+                 {isArchived && (
+                    <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
                  )}
               </>
             )}
@@ -406,7 +413,6 @@ const filterableStatuses: (PatientStatus | 'all')[] = [
   PatientStatus.PendingPayment,
   PatientStatus.Done,
   PatientStatus.Cancelled,
-  PatientStatus.Skipped,
 ];
 
 const StatusFilter: FC<{
@@ -555,8 +561,10 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   
   const handlePaymentSave = async (patientId: string, amountPaid: number) => {
     try {
-        await updatePatientDetails(patientId, { amountPaid });
-        await updatePatientStatus(patientId, PatientStatus.Done);
+        await updatePatientDetails(patientId, { 
+            amountPaid,
+            status: PatientStatus.Done
+        });
         setPaymentPatient(null);
         toast.success('تم تسجيل الدفعة بنجاح.');
     } catch (error) {
@@ -607,8 +615,21 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   };
 
   const handleMarkAsDone = (patient: PatientVisit) => {
-    if (window.confirm(`هل أنت متأكد من إنهاء مراجعة "${patient.name}"؟`)) {
-      onUpdateStatus(patient.id, PatientStatus.Done);
+    if (window.confirm(`هل أنت متأكد من إنهاء مراجعة "${patient.name}" بدون رسوم؟`)) {
+      const toastId = toast.loading('جاري إنهاء المراجعة...');
+      // Using updatePatientDetails to clear financial fields and set status in one go.
+      updatePatientDetails(patient.id, {
+        status: PatientStatus.Done,
+        requiredAmount: 0,
+        amountPaid: 0,
+        servicesRendered: [],
+        customLineItems: []
+      }).then(() => {
+        toast.success('تم إنهاء المراجعة.', { id: toastId });
+      }).catch(error => {
+        toast.error('فشل إنهاء المراجعة.', { id: toastId });
+        console.error("Error marking patient as done:", error);
+      });
     }
   };
 
@@ -636,7 +657,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         toast.error('لا يمكن نقل المراجع إلى "بانتظار الدفع" يدوياً.');
         return;
     }
-    if ([PatientStatus.Done, PatientStatus.Cancelled].includes(draggedPatient.status)) {
+    if ([PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(draggedPatient.status)) {
         toast.error('لا يمكن إعادة مراجع من الأرشيف.');
         return;
     }
@@ -699,7 +720,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onSetNotes={() => setNotesPatient(patient)}
         isBeingCalled={callingPatient?.id === patient.id}
         onMarkAsDone={handleMarkAsDone}
-        isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status)}
+        isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patient.status)}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDropReorder={handleReorderDrop}

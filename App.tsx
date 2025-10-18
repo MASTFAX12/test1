@@ -88,11 +88,21 @@ function App() {
 
     if (callTimeoutId) clearTimeout(callTimeoutId);
 
+    const duration = (settings.callDuration || 10) * 1000;
     const newTimeoutId = setTimeout(() => {
       setCallingPatient(null);
-    }, 10000);
+    }, duration);
     setCallTimeoutId(newTimeoutId);
-  }, [settings.callSoundEnabled, callTimeoutId]);
+  }, [settings.callSoundEnabled, settings.callDuration, callTimeoutId]);
+  
+  const handleStopCall = useCallback(() => {
+    if (callTimeoutId) {
+        clearTimeout(callTimeoutId);
+    }
+    setCallingPatient(null);
+    setNotifiedPatient(null);
+    setCallTimeoutId(null);
+  }, [callTimeoutId]);
 
   const handleUpdateStatus = async (id: string, status: PatientStatus) => {
     try {
@@ -287,6 +297,7 @@ function App() {
         onCancel={handleCancel}
         onDeletePatient={handleDeletePatient}
         onCall={handleCallPatient}
+        onStopCall={handleStopCall}
         onReorder={handleReorder}
         onSetPatientServices={handleSetServices}
       />

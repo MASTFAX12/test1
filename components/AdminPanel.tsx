@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import type { PatientVisit, Service, CustomLineItem, ClinicSettings } from '../types.ts';
 import { Role, PatientStatus } from '../types.ts';
@@ -26,6 +27,7 @@ interface AdminPanelProps {
   onCancel: (id: string) => void;
   onDeletePatient: (id: string) => void;
   onCall: (patient: PatientVisit) => void;
+  onStopCall: () => void;
   onReorder: (patientId: string, newTimestamp: Timestamp) => void;
   onSetPatientServices: (patient: PatientVisit, services: Service[], customItems: CustomLineItem[]) => void;
 }
@@ -49,6 +51,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             onCancel={props.onCancel}
             onDeletePatient={props.onDeletePatient}
             onCall={props.onCall}
+            onStopCall={props.onStopCall}
             onReorder={props.onReorder}
             callingPatient={props.callingPatient}
             availableServices={props.settings.services || []}

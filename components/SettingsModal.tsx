@@ -161,6 +161,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                  <Section title="إعدادات العرض" description="تحكم في العناصر المتحركة والتنبيهات الصوتية.">
                      <div className="space-y-4">
                         <Input icon={<ClockIcon className="w-5 h-5"/>} name="marqueeSpeed" label="سرعة الشريط الإخباري (ثواني)" type="number" value={localSettings.marqueeSpeed.toString()} onChange={handleNumberChange} />
+                        <Input icon={<MegaphoneIcon className="w-5 h-5"/>} name="callDuration" label="مدة عرض النداء (ثواني)" type="number" value={localSettings.callDuration?.toString() || '10'} onChange={handleNumberChange} />
                         <ToggleSwitch name="callSoundEnabled" label="تفعيل صوت النداء" checked={localSettings.callSoundEnabled} onChange={handleChange} description="تشغيل صوت عند إضافة مراجع أو النداء عليه." />
                     </div>
                 </Section>

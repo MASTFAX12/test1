@@ -75,6 +75,7 @@ export interface ClinicSettings {
   showAmountPaidField: boolean;
   // Marquee controls
   marqueeSpeed: number;
+  callDuration: number;
 }
 
 export interface ChatMessage {

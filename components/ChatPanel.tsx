@@ -130,6 +130,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
   const [isArchiving, setIsArchiving] = useState(false);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -193,20 +194,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
     }
   };
   
-  const handleArchiveMessages = async () => {
-    if (!window.confirm("سيتم أرشفة جميع الرسائل بشكل دائم. هل أنت متأكد؟")) return;
+  const handleArchiveMessages = () => {
+    setShowArchiveConfirm(true);
+  };
 
+  const confirmAndExecuteArchive = async () => {
+    setShowArchiveConfirm(false);
     setIsArchiving(true);
     const archiveToast = toast.loading("جاري أرشفة الرسائل...");
     try {
         const count = await archiveAllChatMessages();
         toast.success(count > 0 ? `تمت أرشفة ${count} رسالة.` : 'لا توجد رسائل للأرشفة.', { id: archiveToast });
     } catch (err) {
+        console.error("Archive failed:", err);
         toast.error("فشل في أرشفة الرسائل.", { id: archiveToast });
     } finally {
         setIsArchiving(false);
     }
   };
+
 
   const chatContent = useMemo(() => {
     if (!messages) return [];
@@ -299,6 +305,40 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
             </form>
         </div>
         {viewingImage && <ImageViewerModal imageUrl={viewingImage} onClose={() => setViewingImage(null)} />}
+        {showArchiveConfirm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+              <header className="flex justify-between items-center p-4 border-b">
+                <h2 className="text-xl font-bold text-gray-800">تأكيد أرشفة الرسائل</h2>
+                <button onClick={() => setShowArchiveConfirm(false)} className="p-2 rounded-full hover:bg-gray-100">
+                  <XMarkIcon className="w-6 h-6 text-gray-600" />
+                </button>
+              </header>
+              <div className="p-6 flex-grow">
+                <p className="text-gray-600 text-center leading-relaxed">
+                  سيتم نقل جميع الرسائل في الدردشة الحالية إلى الأرشيف بشكل دائم. <strong>لا يمكن التراجع عن هذا الإجراء.</strong>
+                  <br/>
+                  هل أنت متأكد من المتابعة؟
+                </p>
+              </div>
+              <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+                <button
+                  onClick={() => setShowArchiveConfirm(false)}
+                  className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={confirmAndExecuteArchive}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <ArchiveBoxIcon className="w-5 h-5" />
+                  نعم، أرشفة الكل
+                </button>
+              </footer>
+            </div>
+          </div>
+        )}
      </>
   );
 };

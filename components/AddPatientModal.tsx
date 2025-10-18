@@ -9,7 +9,14 @@ interface AddPatientModalProps {
   onClose: () => void;
 }
 
-const InputField: FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon: React.ReactNode; isOptional?: boolean; }> = ({ label, icon, id, isOptional, ...props }) => (
+interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  icon: React.ReactNode;
+  isOptional?: boolean;
+  error?: string;
+}
+
+const InputField: FC<InputFieldProps> = ({ label, icon, id, isOptional, error, ...props }) => (
     <div>
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">
             {label} {!isOptional && <span className="text-red-500">*</span>}
@@ -18,8 +25,9 @@ const InputField: FC<React.InputHTMLAttributes<HTMLInputElement> & { label: stri
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400">
                 {icon}
             </div>
-            <input id={id} {...props} className="form-input !pr-10 border-2 border-slate-200" />
+            <input id={id} {...props} className={`form-input !pr-10 border-2 ${error ? 'border-red-500' : 'border-slate-200'}`} />
         </div>
+        {error && <p className="mt-1.5 text-xs text-red-600 animate-fade-in">{error}</p>}
     </div>
 );
 
@@ -31,29 +39,41 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
   const [amountPaid, setAmountPaid] = useState('');
   const [showDetailsToPublic, setShowDetailsToPublic] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ phone?: string; age?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const newErrors: { phone?: string; age?: string } = {};
+
     if (!name.trim()) {
       toast.error('الرجاء إدخال اسم المراجع.');
       return;
     }
-    const ageNum = age ? parseInt(age, 10) : undefined;
-    if (age && (isNaN(ageNum) || ageNum < 0 || ageNum > 120)) {
-        toast.error('يرجى إدخال عمر صحيح (بين 0 و 120).');
-        return;
-    }
 
-    // Validate phone number format
+    // Age Validation
+    if (age) {
+        const ageNum = parseInt(age, 10);
+        if (isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+            newErrors.age = 'العمر يجب أن يكون رقماً بين 0 و 120.';
+        }
+    }
+    
+    // Phone Validation
     const phoneRegex = /^\+?[0-9\s()-]*$/;
     if (phone && !phoneRegex.test(phone)) {
-        toast.error('رقم الهاتف يحتوي على رموز غير صالحة. يسمح فقط بعلامة + في البداية.');
-        return;
+        newErrors.phone = 'يسمح فقط بالأرقام، المسافات، ()، - وعلامة + في البداية.';
     }
 
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+        return; // Stop submission if there are validation errors
+    }
 
     setIsSubmitting(true);
     try {
+      const ageNum = age ? parseInt(age, 10) : undefined;
       await addPatientVisit({
         name,
         phone,
@@ -103,8 +123,14 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
                           type="text"
                           inputMode="numeric"
                           value={age}
-                          onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }}
+                          onChange={(e) => {
+                              if (/^\d*$/.test(e.target.value)) {
+                                  setAge(e.target.value);
+                                  if (errors.age) setErrors(prev => ({ ...prev, age: undefined }));
+                              }
+                          }}
                           placeholder="مثال: 35"
+                          error={errors.age}
                       />
                   )}
 
@@ -116,8 +142,12 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
                           isOptional
                           type="tel"
                           value={phone}
-                          onChange={(e) => { if (/^\+?[0-9\s()-]*$/.test(e.target.value)) setPhone(e.target.value); }}
+                          onChange={(e) => {
+                              setPhone(e.target.value);
+                              if (errors.phone) setErrors(prev => ({ ...prev, phone: undefined }));
+                          }}
                           placeholder="مثال: +964 770 123 4567"
+                          error={errors.phone}
                       />
                   )}
                 </div>
@@ -169,7 +199,7 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
                  <button type="button" onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
                     إلغاء
                 </button>
-                <button type="button" onClick={handleSubmit} disabled={isSubmitting} className="w-48 flex items-center justify-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[var(--theme-color)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--theme-color)] disabled:bg-gray-400 transition-opacity">
+                <button type="submit" form="add-patient-form" onClick={handleSubmit} disabled={isSubmitting} className="w-48 flex items-center justify-center gap-2 py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[var(--theme-color)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--theme-color)] disabled:bg-gray-400 transition-opacity">
                   {isSubmitting && <SpinnerIcon className="w-4 h-4" />}
                   {isSubmitting ? 'جاري الإضافة...' : 'إضافة إلى القائمة'}
                 </button>

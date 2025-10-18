@@ -15,14 +15,123 @@ import {
   XMarkIcon,
   PhoneIcon,
   UserIcon,
+  SpinnerIcon,
 } from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
-import PaymentInputCard from './PaymentInputCard.tsx';
 import ServiceSelectionModal from './ServiceSelectionModal.tsx';
 import { toast } from 'react-hot-toast';
 import PatientHistoryModal from './PatientHistoryModal.tsx';
 import { usePrevious } from '../hooks/usePrevious.ts';
 import ConfirmationModal from './ConfirmationModal.tsx';
+import { updatePatientDetails, updatePatientStatus } from '../services/firebase.ts';
+
+interface PaymentModalProps {
+  patient: PatientVisit;
+  onClose: () => void;
+  onSave: (patientId: string, amountPaid: number) => Promise<void>;
+}
+
+const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave }) => {
+    const [amount, setAmount] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const requiredAmount = patient.requiredAmount || 0;
+    const amountNum = parseFloat(amount) || 0;
+    const difference = amountNum - requiredAmount;
+
+    const handleSave = async () => {
+        if (!amount || isNaN(amountNum) || amountNum < 0) {
+            toast.error('الرجاء إدخال مبلغ صحيح.');
+            return;
+        }
+        setIsSaving(true);
+        await onSave(patient.id, amountNum);
+        setIsSaving(false);
+    };
+
+    const handlePayFull = () => {
+        setAmount(requiredAmount.toString());
+    };
+
+    const getDifferenceText = () => {
+        if (!amount) return null;
+        if (difference === 0) return <p className="text-green-600 font-semibold animate-fade-in">المبلغ مطابق تماماً</p>;
+        if (difference < 0) return <p className="text-orange-600 font-semibold animate-fade-in">المبلغ المتبقي: {(-difference).toLocaleString()} د.ع</p>;
+        if (difference > 0) return <p className="text-indigo-600 font-semibold animate-fade-in">الباقي (للمراجع): {difference.toLocaleString()} د.ع</p>;
+        return null;
+    }
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-slate-100 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+                <header className="flex justify-between items-center p-5 border-b border-slate-200">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800">تسجيل دفعة</h2>
+                        <p className="text-sm text-slate-500">للمراجع: {patient.name}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-200/60 transition-colors">
+                        <XMarkIcon className="w-6 h-6 text-slate-600" />
+                    </button>
+                </header>
+                <div className="p-6 flex-grow space-y-5">
+                    <div className="bg-gradient-to-br from-[var(--theme-color)] to-blue-400 text-white text-center p-5 rounded-2xl shadow-lg">
+                        <p className="text-sm font-semibold opacity-80">المبلغ المطلوب</p>
+                        <p className="text-5xl font-extrabold tracking-tight mt-1">{requiredAmount.toLocaleString()} <span className="text-3xl font-bold align-middle">د.ع</span></p>
+                    </div>
+
+                    <div className="space-y-3">
+                        <label htmlFor="paymentAmount" className="block text-sm font-medium text-slate-700 mb-1 text-center">أدخل المبلغ المدفوع</label>
+                        <div className="relative">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                                <CurrencyDollarIcon className="w-6 h-6"/>
+                            </div>
+                            <input
+                                id="paymentAmount"
+                                type="text"
+                                inputMode="decimal"
+                                value={amount}
+                                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmount(e.target.value); }}
+                                className="form-input !pl-12 !pr-4 text-3xl text-center font-bold !py-3 !rounded-lg border border-slate-300"
+                                placeholder="0"
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={handlePayFull} 
+                        className="w-full text-center text-sm font-bold text-blue-800 bg-blue-100 hover:bg-blue-200/70 p-3 rounded-lg transition-colors border border-blue-200/80"
+                    >
+                        دفع المبلغ كاملاً
+                    </button>
+                    
+                    <div className="text-center h-6 text-sm">
+                        {getDifferenceText()}
+                    </div>
+                </div>
+
+                <footer className="p-4 bg-slate-200/70 border-t border-slate-200 flex-shrink-0 flex justify-end gap-3">
+                    <button 
+                        type="button" 
+                        onClick={onClose} 
+                        className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm"
+                    >
+                        إلغاء
+                    </button>
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving || !amount} 
+                        className="w-40 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg shadow-md text-white bg-slate-600 hover:bg-slate-700 disabled:bg-slate-400 transition-all transform active:scale-95"
+                    >
+                        {isSaving && <SpinnerIcon className="w-5 h-5" />}
+                        {isSaving ? 'جاري الحفظ...' : 'تأكيد الدفع'}
+                    </button>
+                </footer>
+            </div>
+        </div>
+    );
+};
+
 
 interface PatientQueueListProps {
   patients: PatientVisit[];
@@ -101,7 +210,7 @@ const PatientCard: FC<PatientCardProps> = ({
   const isWaiting = patient.status === PatientStatus.Waiting;
 
   const cardClasses = [
-    'bg-white rounded-xl py-4 px-4 shadow-sm border-l-4 transition-all duration-300 relative group',
+    'bg-white rounded-xl py-3 px-4 shadow-sm border-l-4 transition-all duration-300 relative group',
     isBeingCalled ? 'ring-2 ring-[var(--theme-color)] animate-pulse' : 'hover:shadow-lg hover:-translate-y-1',
     isDraggable ? 'cursor-grab' : '',
     isNextToPay ? 'ring-2 ring-yellow-400' : '',
@@ -136,10 +245,9 @@ const PatientCard: FC<PatientCardProps> = ({
         </div>
       </div>
       
-      <div className="mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-600">
+      <div className="mt-2 pt-2 border-t border-gray-200/80 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-600">
         <div className="flex items-center gap-1.5"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
-        {patient.phone && <div className="flex items-center gap-1.5"><PhoneIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">الهاتف:</span> {patient.phone}</div>}
-        <div className="flex items-center gap-1.5 col-span-2"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المبلغ المطلوب:</span> <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></div>
+        <div className="flex items-center gap-1.5"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المطلوب:</span> <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></div>
       </div>
       
       {!isBeingCalled && (
@@ -251,7 +359,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   onSetPatientServices,
 }) => {
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
-  const [paymentPatientId, setPaymentPatientId] = useState<string | null>(null);
+  const [paymentPatient, setPaymentPatient] = useState<PatientVisit | null>(null);
   const [serviceSelectionPatient, setServiceSelectionPatient] = useState<PatientVisit | null>(null);
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
   const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
@@ -306,10 +414,16 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     return lists;
   }, [filteredPatients]);
   
-  const handlePaymentSave = (patientId: string) => {
-    onUpdateStatus(patientId, PatientStatus.Done);
-    setPaymentPatientId(null);
-    toast.success('تم تسجيل الدفعة بنجاح.');
+  const handlePaymentSave = async (patientId: string, amountPaid: number) => {
+    try {
+        await updatePatientDetails(patientId, { amountPaid });
+        await updatePatientStatus(patientId, PatientStatus.Done);
+        setPaymentPatient(null);
+        toast.success('تم تسجيل الدفعة بنجاح.');
+    } catch (error) {
+        toast.error('فشل تسجيل الدفعة.');
+        console.error("Payment save failed:", error);
+    }
   }
 
   const handleSetInProgress = (patientId: string) => {
@@ -394,9 +508,6 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     if (editingPatientId === patient.id && role === Role.Secretary) {
       return <EditablePatientCard key={patient.id} patient={patient} onCancel={() => setEditingPatientId(null)} onSave={() => setEditingPatientId(null)} isBeingCalled={callingPatient?.id === patient.id} />;
     }
-    if (paymentPatientId === patient.id && role === Role.Secretary) {
-        return <PaymentInputCard key={patient.id} patient={patient} onCancel={() => setPaymentPatientId(null)} onSave={handlePaymentSave} />;
-    }
     return (
       <PatientCard
         key={patient.id}
@@ -410,7 +521,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onCall={onCall}
         onStopCall={onStopCall}
         onEdit={() => setEditingPatientId(patient.id)}
-        onSetPayment={() => setPaymentPatientId(patient.id)}
+        onSetPayment={() => setPaymentPatient(patient)}
         onSetServices={() => setServiceSelectionPatient(patient)}
         onShowHistory={() => setHistoryPatient(patient)}
         isBeingCalled={callingPatient?.id === patient.id}
@@ -467,6 +578,13 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         </div>
       </div>
       
+      {paymentPatient && role === Role.Secretary && (
+        <PaymentModal 
+            patient={paymentPatient} 
+            onClose={() => setPaymentPatient(null)} 
+            onSave={handlePaymentSave} 
+        />
+      )}
       {serviceSelectionPatient && role === Role.Doctor && (
         <ServiceSelectionModal patient={serviceSelectionPatient} availableServices={availableServices} onClose={() => setServiceSelectionPatient(null)} onSave={(p, services, customItems) => { onSetPatientServices(p, services, customItems); setServiceSelectionPatient(null); }} />
       )}

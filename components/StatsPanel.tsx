@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, FC } from 'react';
 import { ResponsiveContainer, ComposedChart, XAxis, YAxis, Tooltip, Bar, Line, CartesianGrid } from 'recharts';
-import type { PatientVisit } from '../types.ts';
+import type { PatientVisit, ClinicSettings } from '../types.ts';
 import { PatientStatus } from '../types.ts';
 import { SpinnerIcon, CurrencyDollarIcon, UserIcon } from './Icons.tsx';
 import { getPatientsByDateRange } from '../services/firebase.ts';
 
 interface StatsPanelProps {
   patients: PatientVisit[];
+  settings: ClinicSettings;
 }
 
 type DateRange = 'today' | 'week' | 'month';
@@ -28,7 +29,7 @@ const getDateRangeBoundaries = (range: DateRange): { startDate: Date, endDate: D
 };
 
 
-const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
+const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients, settings }) => {
   const [dateRange, setDateRange] = useState<DateRange>('today');
   const [statsData, setStatsData] = useState<PatientVisit[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +122,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
       return (
         <div className="bg-white/80 backdrop-blur-sm p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="font-bold text-gray-800">{`تاريخ: ${label}`}</p>
-          <p className="text-sm text-blue-600">{`المراجعون: ${payload[0].value}`}</p>
+          <p className="text-sm text-[var(--theme-color)]">{`المراجعون: ${payload[0].value}`}</p>
           <p className="text-sm text-purple-600">{`الإيرادات: ${payload[1].value.toLocaleString()} د.ع`}</p>
         </div>
       );
@@ -161,10 +162,10 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
             <ComposedChart data={chartData} margin={{ top: 5, right: 0, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                 <XAxis dataKey="formattedDate" tick={{ fill: '#6b7280', fontSize: 12 }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" tick={{ fill: '#3b82f6', fontSize: 12 }} allowDecimals={false} />
+                <YAxis yAxisId="left" orientation="left" stroke="var(--theme-color)" tick={{ fill: 'var(--theme-color)', fontSize: 12 }} allowDecimals={false} />
                 <YAxis yAxisId="right" orientation="right" stroke="#8b5cf6" tickFormatter={(value) => new Intl.NumberFormat('en-US', { notation: 'compact', compactDisplay: 'short' }).format(value)} tick={{ fill: '#8b5cf6', fontSize: 12 }} />
                 <Tooltip content={<CustomTooltip />} />
-                <Bar yAxisId="left" dataKey="patients" fill="#3b82f6" name="المراجعون" barSize={20} radius={[4, 4, 0, 0]} />
+                <Bar yAxisId="left" dataKey="patients" fill={settings.themeColor} name="المراجعون" barSize={20} radius={[4, 4, 0, 0]} />
                 <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2} name="الإيرادات" />
             </ComposedChart>
           </ResponsiveContainer>
@@ -177,7 +178,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients: todayPatients }) => {
 const DateButton: FC<{label: string, range: DateRange, activeRange: DateRange, setRange: (r: DateRange) => void}> = ({label, range, activeRange, setRange}) => (
     <button 
         onClick={() => setRange(range)}
-        className={`w-full px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${activeRange === range ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}
+        className={`w-full px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${activeRange === range ? 'bg-white shadow text-[var(--theme-color)]' : 'text-gray-600 hover:bg-gray-200'}`}
     >
         {label}
     </button>

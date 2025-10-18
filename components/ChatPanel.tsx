@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, FC } from 'react';
 import { useChat } from '../hooks/useChat.ts';
-import { addChatMessage, uploadChatImage, archiveAllChatMessages, deleteChatMessage, updateChatMessage } from '../services/firebase.ts';
+import { addChatMessage, archiveAllChatMessages, deleteChatMessage, updateChatMessage } from '../services/firebase.ts';
 import { Role } from '../types.ts';
-import { PaperAirplaneIcon, ChatBubbleOvalLeftEllipsisIcon, PaperClipIcon, SpinnerIcon, ArchiveBoxIcon, TrashIcon, PencilIcon, XMarkIcon, CheckIcon } from './Icons.tsx';
+import { PaperAirplaneIcon, ChatBubbleOvalLeftEllipsisIcon, SpinnerIcon, ArchiveBoxIcon, TrashIcon, PencilIcon, XMarkIcon, CheckIcon } from './Icons.tsx';
 import type { ChatMessage } from '../types.ts';
 import { toast } from 'react-hot-toast';
-import ImageViewerModal from './ImageViewerModal.tsx';
 
 interface ChatPanelProps {
   role: Role;
@@ -38,7 +37,7 @@ const EditForm: FC<{
     onSave: (messageId: string, newText: string) => void,
     onCancel: () => void
 }> = ({ message, onSave, onCancel }) => {
-    const [editText, setEditText] = useState(message.text || '');
+    const [editText, setEditText] = useState(message.text);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,10 +78,9 @@ const MessageBubble: FC<{
     currentUserRole: Role;
     onDelete: (id: string) => void;
     onStartEdit: (message: ChatMessage) => void;
-    onViewImage: (imageUrl: string) => void;
     isFirstInGroup: boolean;
     isLastInGroup: boolean;
-}> = ({ message, currentUserRole, onDelete, onStartEdit, onViewImage, isFirstInGroup, isLastInGroup }) => {
+}> = ({ message, currentUserRole, onDelete, onStartEdit, isFirstInGroup, isLastInGroup }) => {
     const isSender = message.sender === currentUserRole;
     const senderName = message.sender === Role.Doctor ? 'الطبيب' : 'السكرتير';
     const messageTime = message.createdAt?.toDate().toLocaleTimeString('ar-SA', {
@@ -104,12 +102,7 @@ const MessageBubble: FC<{
              <div className="relative">
                 <div className={bubbleClasses}>
                     {!isSender && isFirstInGroup && <p className="text-xs font-bold mb-1.5 text-[var(--theme-color)]">{senderName}</p>}
-                    {message.imageUrl && (
-                        <div onClick={() => onViewImage(message.imageUrl)} className="block my-1 cursor-pointer overflow-hidden rounded-lg">
-                            <img src={message.imageUrl} alt="محتوى مرسل" className="max-w-full h-auto max-h-60 object-cover bg-gray-300" />
-                        </div>
-                    )}
-                    {message.text && <p className="text-base break-words whitespace-pre-wrap">{message.text}</p>}
+                    <p className="text-base break-words whitespace-pre-wrap">{message.text}</p>
                 </div>
                 {isSender && (
                      <div className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full ml-[-4px] flex items-center bg-white border rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -126,13 +119,10 @@ const MessageBubble: FC<{
 const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
   const { messages, loading, error } = useChat();
   const [newMessage, setNewMessage] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
-  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
@@ -172,25 +162,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
     } catch (err) {
         console.error('Failed to edit message:', err);
         toast.error('فشل تعديل الرسالة.', { id: toastId });
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const uploadToast = toast.loading('جاري رفع الصورة...');
-    try {
-      const imageUrl = await uploadChatImage(file);
-      await addChatMessage({ sender: role, imageUrl });
-      toast.success('تم إرسال الصورة.', { id: uploadToast });
-    } catch (err) {
-      console.error("Image upload failed:", err);
-      toast.error('فشل رفع الصورة.', { id: uploadToast });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
   
@@ -242,7 +213,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
                 currentUserRole={role}
                 onDelete={handleDeleteMessage}
                 onStartEdit={setEditingMessage}
-                onViewImage={setViewingImage}
                 isFirstInGroup={isFirstInGroup}
                 isLastInGroup={isLastInGroup}
             />);
@@ -285,26 +255,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
                                 handleSendMessage(e);
                             }
                         }}
-                        className="form-input w-full resize-none rounded-full py-2.5 pr-12 pl-12 transition-all duration-200"
+                        className="form-input w-full resize-none rounded-full py-2.5 pr-4 pl-12 transition-all duration-200"
                         placeholder="اكتب رسالتك..."
-                        disabled={isUploading}
                         rows={1}
                     />
-                    <div className="absolute top-1/2 -translate-y-1/2 right-3 flex items-center">
-                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="p-2 text-gray-500 hover:text-[var(--theme-color)] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" title="إرفاق صورة">
-                            {isUploading ? <SpinnerIcon className="w-5 h-5"/> : <PaperClipIcon className="w-5 h-5" />}
-                        </button>
-                        <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" disabled={isUploading} />
-                    </div>
                      <div className="absolute top-1/2 -translate-y-1/2 left-2 flex items-center">
-                        <button type="submit" className="p-2 text-white bg-[var(--theme-color)] hover:opacity-90 rounded-full transition-transform active:scale-95 disabled:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed" disabled={isUploading || !newMessage.trim()}>
+                        <button type="submit" className="p-2 text-white bg-[var(--theme-color)] hover:opacity-90 rounded-full transition-transform active:scale-95 disabled:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!newMessage.trim()}>
                             <PaperAirplaneIcon className="w-5 h-5" />
                         </button>
                     </div>
                 </div>
             </form>
         </div>
-        {viewingImage && <ImageViewerModal imageUrl={viewingImage} onClose={() => setViewingImage(null)} />}
         {showArchiveConfirm && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">

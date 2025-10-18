@@ -15,8 +15,6 @@ import {
   limit,
   orderBy
 } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid';
 import { Role, PatientStatus } from '../types.ts';
 import type { PatientVisit, PatientStatus as PatientStatusType, ClinicSettings, PatientProfile } from '../types.ts';
 
@@ -33,9 +31,8 @@ const firebaseConfig = {
 // Initialize Firebase with your project's configuration
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
-export { db, storage };
+export { db };
 
 // Finds an existing patient profile or creates a new one.
 // Returns the ID of the patient profile.
@@ -176,27 +173,16 @@ export const updateClinicSettings = async (settings: Partial<ClinicSettings>) =>
   await setDoc(settingsRef, dataToSet, { merge: true });
 };
 
-export const uploadChatImage = async (file: File): Promise<string> => {
-  if (!storage) throw new Error("Storage not initialized");
-  const fileId = uuidv4();
-  const storageRef = ref(storage, `chat_images/${fileId}`);
-  await uploadBytes(storageRef, file);
-  const downloadURL = await getDownloadURL(storageRef);
-  return downloadURL;
-};
-
 export const addChatMessage = async (message: {
-  text?: string;
-  imageUrl?: string;
+  text: string;
   sender: Role;
 }) => {
   if (!db) return;
-  const { text, imageUrl, sender } = message;
-  if (!text?.trim() && !imageUrl) return;
+  const { text, sender } = message;
+  if (!text.trim()) return;
 
   await addDoc(collection(db, 'chat'), {
-    text: text || null,
-    imageUrl: imageUrl || null,
+    text,
     sender,
     createdAt: Timestamp.now(),
   });

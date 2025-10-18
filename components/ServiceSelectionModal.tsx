@@ -70,10 +70,10 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ patient, 
                   <button
                     key={service.id}
                     onClick={() => handleToggleService(service)}
-                    className={`w-full text-right flex justify-between items-center p-3 rounded-lg border-2 transition-all duration-200 ${isSelected ? 'bg-blue-100 border-blue-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'}`}
+                    className={`w-full text-right flex justify-between items-center p-3 rounded-lg border-2 transition-all duration-200 ${isSelected ? 'bg-slate-100 border-[var(--theme-color)]' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'}`}
                   >
-                    <span className={`font-semibold ${isSelected ? 'text-blue-700' : 'text-gray-700'}`}>{service.name}</span>
-                    <span className={`font-bold ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>{service.price.toLocaleString()} د.ع</span>
+                    <span className={`font-semibold ${isSelected ? 'text-[var(--theme-color)]' : 'text-gray-700'}`}>{service.name}</span>
+                    <span className={`font-bold ${isSelected ? 'text-[var(--theme-color)]' : 'text-gray-500'}`}>{service.price.toLocaleString()} د.ع</span>
                   </button>
                 );
               })}
@@ -101,11 +101,11 @@ const ServiceSelectionModal: React.FC<ServiceSelectionModalProps> = ({ patient, 
         <footer className="p-4 border-t bg-gray-50 rounded-b-2xl flex-shrink-0">
           <div className="flex justify-between items-center mb-4">
             <span className="text-lg font-bold text-gray-800">المجموع الكلي:</span>
-            <span className="text-2xl font-extrabold text-blue-600">{totalAmount.toLocaleString()} د.ع</span>
+            <span className="text-2xl font-extrabold text-[var(--theme-color)]">{totalAmount.toLocaleString()} د.ع</span>
           </div>
           <button
             onClick={handleConfirm}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400"
+            className="w-full bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400"
             disabled={selectedServices.length === 0 && customItems.every(item => !item.description.trim())}
           >
             تأكيد وإرسال للسكرتير

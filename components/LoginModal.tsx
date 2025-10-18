@@ -45,16 +45,16 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
       <div className="flex flex-col gap-4">
         <button
           onClick={() => handleRoleSelect(Role.Doctor)}
-          className="group flex items-center justify-center gap-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-white font-bold py-4 px-4 rounded-xl focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-800 ring-blue-500 transition-all duration-200 hover:scale-105 w-full text-lg"
+          className="group flex items-center justify-center gap-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-white font-bold py-4 px-4 rounded-xl focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-800 ring-[var(--theme-color)] transition-all duration-200 hover:scale-105 w-full text-lg"
         >
-          <AcademicCapIcon className="w-6 h-6 text-blue-400 group-hover:text-white transition-colors"/>
+          <AcademicCapIcon className="w-6 h-6 text-[var(--theme-color)] group-hover:text-white transition-colors"/>
           <span>دخول كطبيب</span>
         </button>
         <button
           onClick={() => handleRoleSelect(Role.Secretary)}
-          className="group flex items-center justify-center gap-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-white font-bold py-4 px-4 rounded-xl focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-800 ring-purple-500 transition-all duration-200 hover:scale-105 w-full text-lg"
+          className="group flex items-center justify-center gap-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-white font-bold py-4 px-4 rounded-xl focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-800 ring-[var(--theme-color)] transition-all duration-200 hover:scale-105 w-full text-lg"
         >
-          <UserIcon className="w-6 h-6 text-purple-400 group-hover:text-white transition-colors"/>
+          <UserIcon className="w-6 h-6 text-[var(--theme-color)] group-hover:text-white transition-colors"/>
           <span>دخول كسكرتير</span>
         </button>
          <button
@@ -116,7 +116,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
 
   return (
     <div className="fixed inset-0 bg-[#111827]/80 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in p-4">
-      <div className="bg-slate-800/80 rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-auto border border-slate-700">
+      <div className="bg-slate-800/80 rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-auto border-t-4 border-[var(--theme-color)]">
         {step === 'role' ? renderRoleSelection() : renderPasswordInput()}
       </div>
     </div>

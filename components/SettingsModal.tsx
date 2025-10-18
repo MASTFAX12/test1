@@ -313,7 +313,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
             {/* Sidebar */}
             <aside className="w-full md:w-64 flex-shrink-0 bg-gray-100 p-4 border-b md:border-b-0 md:border-l border-gray-200">
                 <header className="flex justify-between items-center p-2 mb-6">
-                    <h2 className="text-lg font-bold text-gray-800">الإعدادات</h2>
+                    <h2 className="text-lg font-bold text-[var(--theme-color)]">الإعدادات</h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 md:hidden">
                         <XMarkIcon className="w-6 h-6 text-gray-600" />
                     </button>
@@ -414,7 +414,7 @@ interface SectionProps {
 }
 const Section: FC<SectionProps> = ({ title, description, children }) => (
     <div className="mb-8">
-        <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+        <h3 className="text-xl font-bold text-[var(--theme-color)]">{title}</h3>
         <p className="text-sm text-gray-500 mb-4">{description}</p>
         <div className="p-6 bg-gray-50/80 rounded-xl border border-gray-200/80">
             {children}

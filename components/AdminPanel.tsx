@@ -37,7 +37,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
   const renderActiveView = () => {
     switch (activeView) {
       case 'stats':
-        return <StatsPanel patients={props.patients} />;
+        return <StatsPanel patients={props.patients} settings={props.settings} />;
       case 'chat':
         return <ChatPanel role={props.role} />;
       case 'queue':

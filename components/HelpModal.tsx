@@ -9,8 +9,8 @@ interface HelpModalProps {
 
 const InstructionPoint: FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div className="mb-4">
-        <h4 className="font-bold text-blue-700 mb-1">{title}</h4>
-        <div className="text-sm text-gray-600 leading-relaxed pr-2 border-r-2 border-blue-200">{children}</div>
+        <h4 className="font-bold text-[var(--theme-color)] mb-1">{title}</h4>
+        <div className="text-sm text-gray-600 leading-relaxed pr-2 border-r-2 border-[var(--theme-color)] border-opacity-30">{children}</div>
     </div>
 );
 
@@ -102,7 +102,7 @@ const HelpModal: FC<HelpModalProps> = ({ role, onClose }) => {
         <footer className="p-4 border-t bg-gray-50 rounded-b-2xl flex-shrink-0 flex justify-end">
           <button
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2 px-6 rounded-lg transition-colors"
           >
             فهمت، إغلاق
           </button>

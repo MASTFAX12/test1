@@ -58,9 +58,9 @@ const PatientHistoryModal: FC<PatientHistoryModalProps> = ({ patientProfileId, p
                 {history.map(visit => {
                   const isCurrentVisit = visit.id === currentVisitId;
                   return (
-                    <li key={visit.id} className={`p-4 rounded-lg border ${isCurrentVisit ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-200'}`}>
+                    <li key={visit.id} className={`p-4 rounded-lg border ${isCurrentVisit ? 'bg-slate-50 border-[var(--theme-color)]' : 'bg-gray-50 border-gray-200'}`}>
                       <div className="flex justify-between items-center mb-2">
-                        <p className={`font-bold ${isCurrentVisit ? 'text-blue-800' : 'text-gray-700'}`}>
+                        <p className={`font-bold ${isCurrentVisit ? 'text-[var(--theme-color)]' : 'text-gray-700'}`}>
                           {visit.visitDate.toDate().toLocaleDateString('ar-SA', {
                             year: 'numeric', month: 'long', day: 'numeric'
                           })}
@@ -125,7 +125,7 @@ const PatientHistoryModal: FC<PatientHistoryModalProps> = ({ patientProfileId, p
         <footer className="p-4 border-t bg-gray-50 rounded-b-2xl flex-shrink-0 flex justify-end">
           <button
             onClick={onClose}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2 px-6 rounded-lg transition-colors"
           >
             إغلاق
           </button>

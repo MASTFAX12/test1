@@ -171,7 +171,7 @@ const ClinicalNotesModal: FC<{
         </div>
         <footer className="p-4 border-t bg-gray-50 rounded-b-2xl flex-shrink-0 flex justify-end gap-3">
           <button onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">إلغاء</button>
-          <button onClick={handleSaveClick} disabled={isSaving} className="w-36 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 transition-all">
+          <button onClick={handleSaveClick} disabled={isSaving} className="w-36 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg shadow-md text-white bg-[var(--theme-color)] hover:opacity-90 disabled:bg-gray-400 transition-all">
             {isSaving ? <SpinnerIcon className="w-5 h-5"/> : 'حفظ'}
           </button>
         </footer>

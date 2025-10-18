@@ -146,8 +146,7 @@ export interface ClinicSettings {
 
 export interface ChatMessage {
   id: string;
-  text?: string;
-  imageUrl?: string;
+  text: string;
   sender: Role;
   createdAt: Timestamp;
 }

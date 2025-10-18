@@ -102,6 +102,7 @@ export const addPatientVisit = async (patientData: {
         requiredAmount: null,
         servicesRendered: null,
         customLineItems: null,
+        clinicalNotes: null,
         showDetailsToPublic: showDetailsToPublic || false,
         status: 'waiting',
         createdAt: Timestamp.now(), // For queue order
@@ -173,15 +174,6 @@ export const updateClinicSettings = async (settings: Partial<ClinicSettings>) =>
   // The old logic `delete dataToSet.doctorPassword` is removed.
 
   await setDoc(settingsRef, dataToSet, { merge: true });
-};
-
-export const uploadProfilePicture = async (file: File, role: Role.Doctor | Role.Secretary): Promise<string> => {
-  if (!storage) throw new Error("Storage not initialized");
-  const filePath = `profile_pictures/${role}`;
-  const storageRef = ref(storage, filePath);
-  await uploadBytes(storageRef, file);
-  const downloadURL = await getDownloadURL(storageRef);
-  return downloadURL;
 };
 
 export const uploadChatImage = async (file: File): Promise<string> => {

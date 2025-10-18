@@ -107,6 +107,7 @@ export interface PatientVisit {
   requiredAmount: number | null;
   servicesRendered: Service[] | null;
   customLineItems: CustomLineItem[] | null;
+  clinicalNotes?: string;
   showDetailsToPublic: boolean;
   status: PatientStatus;
   createdAt: Timestamp; // Used for ordering in the queue
@@ -128,8 +129,6 @@ export interface ClinicSettings {
   publicMessage: string;
   doctorPassword?: string;
   secretaryPassword?: string;
-  doctorProfilePicUrl?: string;
-  secretaryProfilePicUrl?: string;
   themeColor: string;
   callSoundEnabled: boolean;
   services: Service[];

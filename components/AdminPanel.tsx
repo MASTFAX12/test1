@@ -19,7 +19,6 @@ interface AdminPanelProps {
   callingPatient: PatientVisit | null;
   onLogout: () => void;
   onShowPublicView: () => void;
-  onOpenProfileModal: () => void;
   onOpenHelpModal: () => void;
   onOpenSettingsModal: () => void;
   onOpenAddPatientModal: () => void;
@@ -73,10 +72,8 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
           role={props.role}
           onLogout={props.onLogout}
           onShowPublicView={props.onShowPublicView}
-          onOpenProfileModal={props.onOpenProfileModal}
           onOpenHelpModal={props.onOpenHelpModal}
           onOpenSettingsModal={props.onOpenSettingsModal}
-          profilePicUrl={props.role === Role.Doctor ? props.settings.doctorProfilePicUrl : props.settings.secretaryProfilePicUrl}
           clinicName={props.settings.clinicName}
         />
         <main className="flex-grow p-6 flex flex-col min-h-0">

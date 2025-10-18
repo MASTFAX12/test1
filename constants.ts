@@ -7,8 +7,6 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   doctorName: 'اسم الطبيب',
   clinicSpecialty: 'التخصص الطبي',
   publicMessage: 'أهلاً بكم في عيادتنا. نتمنى لكم دوام الصحة والعافية.',
-  doctorProfilePicUrl: '',
-  secretaryProfilePicUrl: '',
   themeColor: '#2563eb', // blue-600
   callSoundEnabled: true,
   services: [

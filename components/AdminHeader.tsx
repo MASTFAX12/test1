@@ -1,20 +1,19 @@
 
+
 import React from 'react';
 import { Role } from '../types.ts';
-import { EyeIcon, ArrowRightOnRectangleIcon, UserCircleIcon, QuestionMarkCircleIcon, Cog8ToothIcon } from './Icons.tsx';
+import { EyeIcon, ArrowRightOnRectangleIcon, QuestionMarkCircleIcon, Cog8ToothIcon, UserCircleIcon } from './Icons.tsx';
 
 interface AdminHeaderProps {
   role: Role;
   onLogout: () => void;
   onShowPublicView: () => void;
-  onOpenProfileModal: () => void;
   onOpenHelpModal: () => void;
   onOpenSettingsModal: () => void;
-  profilePicUrl?: string;
   clinicName: string;
 }
 
-const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicView, onOpenProfileModal, onOpenHelpModal, onOpenSettingsModal, profilePicUrl }) => {
+const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicView, onOpenHelpModal, onOpenSettingsModal }) => {
   const roleText = role === Role.Doctor ? 'الطبيب' : 'السكرتير';
 
   return (
@@ -59,17 +58,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ role, onLogout, onShowPublicV
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5" />
         </button>
-        <button
-          onClick={onOpenProfileModal}
-          className="w-11 h-11 bg-gray-200 hover:bg-gray-300 rounded-full flex items-center justify-center transition-colors ml-2"
-          title="تغيير صورة الملف الشخصي"
-        >
-          {profilePicUrl ? (
-            <img src={profilePicUrl} alt="Profile" className="w-full h-full rounded-full object-cover ring-2 ring-white"/>
-          ) : (
+        <div className="w-11 h-11 bg-gray-200 rounded-full flex items-center justify-center ml-2">
             <UserCircleIcon className="w-8 h-8 text-gray-500" />
-          )}
-        </button>
+        </div>
       </div>
     </header>
   );

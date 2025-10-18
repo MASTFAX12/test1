@@ -16,6 +16,7 @@ import {
   PhoneIcon,
   UserIcon,
   SpinnerIcon,
+  ClipboardDocumentListIcon,
 } from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
 import ServiceSelectionModal from './ServiceSelectionModal.tsx';
@@ -132,6 +133,53 @@ const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave }) => {
     );
 };
 
+const ClinicalNotesModal: FC<{
+  patient: PatientVisit;
+  onClose: () => void;
+  onSave: (patientId: string, notes: string) => Promise<void>;
+}> = ({ patient, onClose, onSave }) => {
+  const [notes, setNotes] = useState(patient.clinicalNotes || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveClick = async () => {
+    setIsSaving(true);
+    await onSave(patient.id, notes);
+    // The parent component will handle closing the modal upon success
+    setIsSaving(false);
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <header className="flex justify-between items-center p-4 border-b flex-shrink-0">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">الملاحظات السريرية</h2>
+            <p className="text-sm text-gray-500">للمراجع: {patient.name}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+            <XMarkIcon className="w-6 h-6 text-gray-600" />
+          </button>
+        </header>
+        <div className="p-6 flex-grow flex flex-col">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="form-input flex-grow w-full resize-none"
+            placeholder="اكتب التشخيص، العلاج، ملاحظات المتابعة..."
+            autoFocus
+          />
+        </div>
+        <footer className="p-4 border-t bg-gray-50 rounded-b-2xl flex-shrink-0 flex justify-end gap-3">
+          <button onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">إلغاء</button>
+          <button onClick={handleSaveClick} disabled={isSaving} className="w-36 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg shadow-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 transition-all">
+            {isSaving ? <SpinnerIcon className="w-5 h-5"/> : 'حفظ'}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
 
 interface PatientQueueListProps {
   patients: PatientVisit[];
@@ -161,6 +209,7 @@ interface PatientCardProps {
   onSetPayment: () => void;
   onSetServices: () => void;
   onShowHistory: () => void;
+  onSetNotes: () => void;
   isBeingCalled?: boolean;
   onMarkAsDone: (patient: PatientVisit) => void;
   isDraggable?: boolean;
@@ -186,6 +235,7 @@ const PatientCard: FC<PatientCardProps> = ({
   onSetPayment,
   onSetServices,
   onShowHistory,
+  onSetNotes,
   isBeingCalled,
   onMarkAsDone,
   isDraggable,
@@ -286,6 +336,7 @@ const PatientCard: FC<PatientCardProps> = ({
                 )}
                 {patient.status === PatientStatus.InProgress && (
                   <>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="كتابة ملاحظات سريرية" onClick={onSetNotes} className={actionButtonClasses}><ClipboardDocumentListIcon className="w-5 h-5" /></button>
                     <button onMouseDown={(e) => e.stopPropagation()} title="تحديد الخدمات والرسوم" onClick={onSetServices} className={actionButtonClasses}><Cog8ToothIcon className="w-5 h-5" /></button>
                     <button onMouseDown={(e) => e.stopPropagation()} title="إنهاء بدون رسوم" onClick={() => onMarkAsDone(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                   </>
@@ -362,6 +413,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [paymentPatient, setPaymentPatient] = useState<PatientVisit | null>(null);
   const [serviceSelectionPatient, setServiceSelectionPatient] = useState<PatientVisit | null>(null);
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
+  const [notesPatient, setNotesPatient] = useState<PatientVisit | null>(null);
   const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedPatient, setDraggedPatient] = useState<PatientVisit | null>(null);
@@ -395,8 +447,11 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return patients;
-    const lowercasedFilter = searchTerm.toLowerCase();
-    return patients.filter(patient => patient.name.toLowerCase().includes(lowercasedFilter));
+    const lowercasedFilter = searchTerm.toLowerCase().replace(/\s/g, '');
+    return patients.filter(patient => 
+      patient.name.toLowerCase().includes(lowercasedFilter) ||
+      patient.phone?.replace(/\s/g, '').includes(lowercasedFilter)
+    );
   }, [patients, searchTerm]);
 
 
@@ -425,6 +480,18 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         console.error("Payment save failed:", error);
     }
   }
+
+  const handleSaveNotes = async (patientId: string, notes: string) => {
+    const toastId = toast.loading('جاري حفظ الملاحظات...');
+    try {
+      await updatePatientDetails(patientId, { clinicalNotes: notes });
+      toast.success('تم حفظ الملاحظات بنجاح.', { id: toastId });
+      setNotesPatient(null);
+    } catch (error) {
+      toast.error('فشل حفظ الملاحظات.', { id: toastId });
+      console.error("Failed to save notes:", error);
+    }
+  };
 
   const handleSetInProgress = (patientId: string) => {
     if (inProgress.length > 0 && !inProgress.some(p => p.id === patientId)) {
@@ -524,6 +591,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onSetPayment={() => setPaymentPatient(patient)}
         onSetServices={() => setServiceSelectionPatient(patient)}
         onShowHistory={() => setHistoryPatient(patient)}
+        onSetNotes={() => setNotesPatient(patient)}
         isBeingCalled={callingPatient?.id === patient.id}
         onMarkAsDone={handleMarkAsDone}
         isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status)}
@@ -546,7 +614,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
             <MagnifyingGlassIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="ابحث عن مراجع بالاسم..."
+              placeholder="ابحث عن مراجع بالاسم أو الهاتف..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="form-input !pr-12"
@@ -590,6 +658,13 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       )}
       {historyPatient && (
         <PatientHistoryModal patientProfileId={historyPatient.patientProfileId} patientName={historyPatient.name} currentVisitId={historyPatient.id} onClose={() => setHistoryPatient(null)} />
+      )}
+      {notesPatient && role === Role.Doctor && (
+        <ClinicalNotesModal
+          patient={notesPatient}
+          onClose={() => setNotesPatient(null)}
+          onSave={handleSaveNotes}
+        />
       )}
       {patientToAction && (
         <ConfirmationModal

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Timestamp } from 'firebase/firestore';
@@ -12,7 +13,6 @@ import {
   cancelPatient, 
   deletePatientVisit,
   updatePatientDetails, 
-  uploadProfilePicture, 
   updateClinicSettings, 
   reorderPatientQueue
 } from './services/firebase.ts';
@@ -26,7 +26,6 @@ import Marquee from './components/Marquee.tsx';
 import TimeDisplay from './components/TimeDisplay.tsx';
 import CallingNotification from './components/CallingNotification.tsx';
 import SettingsModal from './components/SettingsModal.tsx';
-import ProfilePictureModal from './components/ProfilePictureModal.tsx';
 import HelpModal from './components/HelpModal.tsx';
 import AddPatientModal from './components/AddPatientModal.tsx';
 import { ArrowUturnLeftIcon, LockClosedIcon } from './components/Icons.tsx';
@@ -38,7 +37,6 @@ function App() {
   const [loggedInUserRole, setLoggedInUserRole] = useState<Role>(Role.None);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
-  const [isProfileModalOpen, setProfileModalOpen] = useState(false);
   const [isHelpModalOpen, setHelpModalOpen] = useState(false);
   const [isAddPatientModalOpen, setAddPatientModalOpen] = useState(false);
   
@@ -177,28 +175,6 @@ function App() {
       }
   };
 
-  const handleProfilePictureSave = async (file: File) => {
-    if (role !== Role.Doctor && role !== Role.Secretary) {
-      toast.error('دور غير صالح لتحديث الصورة.');
-      return;
-    }
-    const uploadToast = toast.loading('جاري رفع الصورة...');
-    try {
-      const downloadURL = await uploadProfilePicture(file, role);
-      const settingsUpdate = role === Role.Doctor
-          ? { doctorProfilePicUrl: downloadURL }
-          : { secretaryProfilePicUrl: downloadURL };
-  
-      await updateClinicSettings(settingsUpdate);
-      
-      toast.success('تم تحديث صورة الملف الشخصي بنجاح!', { id: uploadToast });
-      setProfileModalOpen(false);
-    } catch (error) {
-      console.error("Failed to save profile picture:", error);
-      toast.error('فشل حفظ الصورة.', { id: uploadToast });
-    }
-  };
-
   const inProgressPatient = useMemo(() => patients.find(p => p.status === PatientStatus.InProgress), [patients]);
   const waitingPatients = useMemo(() => patients.filter(p => p.status === PatientStatus.Waiting), [patients]);
 
@@ -301,7 +277,6 @@ function App() {
         callingPatient={callingPatient}
         onLogout={handleLogout}
         onShowPublicView={() => setRole(Role.Public)}
-        onOpenProfileModal={() => setProfileModalOpen(true)}
         onOpenHelpModal={() => setHelpModalOpen(true)}
         onOpenSettingsModal={() => setSettingsModalOpen(true)}
         onOpenAddPatientModal={() => setAddPatientModalOpen(true)}
@@ -325,14 +300,6 @@ function App() {
       {isSettingsModalOpen && role === Role.Doctor && <SettingsModal settings={settings} onClose={() => setSettingsModalOpen(false)} />}
       {isAddPatientModalOpen && role === Role.Secretary && <AddPatientModal settings={settings} onClose={() => setAddPatientModalOpen(false)} />}
       
-      {isProfileModalOpen && (role === Role.Doctor || role === Role.Secretary) && (
-          <ProfilePictureModal
-              onClose={() => setProfileModalOpen(false)}
-              onSave={handleProfilePictureSave}
-              currentImageUrl={role === Role.Doctor ? settings.doctorProfilePicUrl : settings.secretaryProfilePicUrl}
-              role={role}
-          />
-      )}
       {isHelpModalOpen && (
           <HelpModal
             role={role}

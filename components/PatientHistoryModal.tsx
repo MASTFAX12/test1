@@ -95,6 +95,13 @@ const PatientHistoryModal: FC<PatientHistoryModalProps> = ({ patientProfileId, p
                         </div>
                       ) : null}
 
+                      {visit.clinicalNotes && (
+                        <div className="mt-2 pt-2 border-t border-gray-200/60">
+                            <h4 className="text-xs font-semibold text-gray-500 mb-1">الملاحظات السريرية:</h4>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-100 p-2 rounded-md">{visit.clinicalNotes}</p>
+                        </div>
+                      )}
+
                       <div className="flex justify-end gap-6 text-sm pt-2 border-t mt-2">
                           <div>
                               <span className="font-semibold text-gray-500">المبلغ المطلوب: </span>

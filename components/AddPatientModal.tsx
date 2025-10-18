@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { SpinnerIcon, XMarkIcon } from './Icons.tsx';
+import React, { useState, FC } from 'react';
+import { SpinnerIcon, XMarkIcon, UserIcon, CakeIcon, PhoneIcon, PencilIcon, CurrencyDollarIcon } from './Icons.tsx';
 import type { ClinicSettings } from '../types.ts';
 import { addPatientVisit } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
@@ -8,6 +8,20 @@ interface AddPatientModalProps {
   settings: ClinicSettings;
   onClose: () => void;
 }
+
+const InputField: FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string; icon: React.ReactNode; isOptional?: boolean; }> = ({ label, icon, id, isOptional, ...props }) => (
+    <div>
+        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">
+            {label} {!isOptional && <span className="text-red-500">*</span>}
+        </label>
+        <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400">
+                {icon}
+            </div>
+            <input id={id} {...props} className="form-input !pr-10 border-2 border-slate-200" />
+        </div>
+    </div>
+);
 
 const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) => {
   const [name, setName] = useState('');
@@ -29,6 +43,14 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
         toast.error('يرجى إدخال عمر صحيح (بين 0 و 120).');
         return;
     }
+
+    // Validate phone number format
+    const phoneRegex = /^\+?[0-9\s()-]*$/;
+    if (phone && !phoneRegex.test(phone)) {
+        toast.error('رقم الهاتف يحتوي على رموز غير صالحة. يسمح فقط بعلامة + في البداية.');
+        return;
+    }
+
 
     setIsSubmitting(true);
     try {
@@ -59,44 +81,87 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
                     <XMarkIcon className="w-6 h-6 text-gray-600" />
                 </button>
             </header>
-            <form onSubmit={handleSubmit} className="flex-grow p-6 space-y-4 overflow-y-auto">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">الاسم الكامل *</label>
-                  <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} className="form-input" required autoFocus placeholder="مثال: أحمد محمد" />
+            <form onSubmit={handleSubmit} className="flex-grow p-6 space-y-5 overflow-y-auto">
+                <InputField
+                  id="name"
+                  label="الاسم الكامل"
+                  icon={<UserIcon className="w-5 h-5" />}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                  placeholder="مثال: أحمد محمد"
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {settings.showAgeField && (
+                      <InputField
+                          id="age"
+                          label="العمر"
+                          icon={<CakeIcon className="w-5 h-5" />}
+                          isOptional
+                          type="text"
+                          inputMode="numeric"
+                          value={age}
+                          onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }}
+                          placeholder="مثال: 35"
+                      />
+                  )}
+
+                  {settings.showPhoneField && (
+                      <InputField
+                          id="phone"
+                          label="رقم الهاتف"
+                          icon={<PhoneIcon className="w-5 h-5" />}
+                          isOptional
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => { if (/^\+?[0-9\s()-]*$/.test(e.target.value)) setPhone(e.target.value); }}
+                          placeholder="مثال: +964 770 123 4567"
+                      />
+                  )}
                 </div>
                 
-                {settings.showAgeField && (
-                    <div>
-                        <label htmlFor="age" className="block text-sm font-medium text-gray-700 mb-1">العمر</label>
-                        <input type="text" inputMode="numeric" id="age" value={age} onChange={(e) => { if (/^\d*$/.test(e.target.value)) setAge(e.target.value); }} className="form-input" placeholder="مثال: 35"/>
-                    </div>
-                )}
-
-                {settings.showPhoneField && (
-                    <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
-                        <input type="tel" id="phone" value={phone} onChange={(e) => { if (/^[0-9\s+()-]*$/.test(e.target.value)) setPhone(e.target.value); }} className="form-input" placeholder="مثال: 07701234567"/>
-                    </div>
-                )}
-                
                 {settings.showReasonField && (
-                    <div>
-                        <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">سبب الزيارة</label>
-                        <input type="text" id="reason" value={reason} onChange={(e) => setReason(e.target.value)} className="form-input" placeholder="مثال: مراجعة عامة"/>
-                    </div>
+                     <InputField
+                          id="reason"
+                          label="سبب الزيارة"
+                          icon={<PencilIcon className="w-5 h-5" />}
+                          isOptional
+                          type="text"
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder="مثال: مراجعة عامة"
+                      />
                 )}
                 
                 {settings.showAmountPaidField && (
-                     <div>
-                        <label htmlFor="amountPaid" className="block text-sm font-medium text-gray-700 mb-1">الدفعة الأولية</label>
-                        <input type="text" inputMode="decimal" id="amountPaid" step="any" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className="form-input" placeholder="مثال: 10000"/>
-                    </div>
+                     <InputField
+                          id="amountPaid"
+                          label="الدفعة الأولية"
+                          icon={<CurrencyDollarIcon className="w-5 h-5" />}
+                          isOptional
+                          type="text"
+                          inputMode="decimal"
+                          value={amountPaid}
+                          onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }}
+                          placeholder="مثال: 10000"
+                      />
                 )}
                 
                 <div className="pt-2">
-                    <label className="flex items-center space-x-2 rtl:space-x-reverse cursor-pointer">
-                      <input id="showDetailsToPublic" name="showDetailsToPublic" type="checkbox" checked={showDetailsToPublic} onChange={(e) => setShowDetailsToPublic(e.target.checked)} className="focus:ring-[var(--theme-color)] h-4 w-4 text-[var(--theme-color)] border-gray-300 rounded"/>
+                    <label htmlFor="showDetailsToPublic" className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200/80 cursor-pointer hover:bg-gray-100/60 transition-colors">
                       <span className="font-medium text-gray-700 text-sm">إظهار سبب الزيارة على الشاشة العامة</span>
+                      <div className="relative inline-flex items-center cursor-pointer">
+                          <input
+                              id="showDetailsToPublic"
+                              type="checkbox"
+                              checked={showDetailsToPublic}
+                              onChange={(e) => setShowDetailsToPublic(e.target.checked)}
+                              className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] rtl:after:right-[1px] rtl:after:left-auto after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
+                      </div>
                     </label>
                 </div>
             </form>

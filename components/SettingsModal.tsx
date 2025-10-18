@@ -1,6 +1,7 @@
 import React, { useState, useEffect, FC } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { ClinicSettings, Service } from '../types.ts';
+import type { ClinicSettings, Service, PublicTheme } from '../types.ts';
+import { themes } from '../types.ts';
 import {
   XMarkIcon,
   TrashIcon,
@@ -39,7 +40,7 @@ const themeCards = [
     { name: 'Amber Orange', color: '#f59e0b' },
 ];
 
-const ThemeCard: FC<{ theme: typeof themeCards[0]; isSelected: boolean; onSelect: () => void; }> = ({ theme, isSelected, onSelect }) => (
+const AccentThemeCard: FC<{ theme: typeof themeCards[0]; isSelected: boolean; onSelect: () => void; }> = ({ theme, isSelected, onSelect }) => (
     <button
         type="button"
         onClick={onSelect}
@@ -57,6 +58,22 @@ const ThemeCard: FC<{ theme: typeof themeCards[0]; isSelected: boolean; onSelect
         </div>
         <div className="p-3 text-center bg-white rounded-b-lg flex items-center justify-center gap-2">
             <div className="w-4 h-4 rounded-full" style={{ backgroundColor: theme.color }}></div>
+            <p className="font-semibold text-sm text-gray-700">{theme.name}</p>
+        </div>
+    </button>
+);
+
+const PublicThemeCard: FC<{ theme: PublicTheme; isSelected: boolean; onSelect: () => void; }> = ({ theme, isSelected, onSelect }) => (
+    <button
+        type="button"
+        onClick={onSelect}
+        className={`w-full rounded-xl border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-[var(--theme-color)] overflow-hidden shadow-sm group ${isSelected ? 'border-[var(--theme-color)] shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
+    >
+        <div className={`w-full h-20 rounded-t-lg p-3 ${theme.background} transition flex flex-col justify-between`}>
+            <div className={`h-2 w-3/4 rounded-sm ${theme.primaryText.includes('white') ? 'bg-white/70' : 'bg-gray-600/70'}`}></div>
+            <div className={`h-2 w-1/2 rounded-sm ${theme.secondaryText.includes('200') || theme.secondaryText.includes('300') ? 'bg-white/50' : 'bg-gray-400/70'}`}></div>
+        </div>
+        <div className="p-3 text-center bg-white rounded-b-lg">
             <p className="font-semibold text-sm text-gray-700">{theme.name}</p>
         </div>
     </button>
@@ -146,10 +163,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
             )}
             {activeTab === 'appearance' && (
               <>
-                <Section title="الثيم والألوان" description="اختر المظهر العام للتطبيق ليتناسب مع هوية عيادتك.">
+                <Section title="ثيم الشاشة الرئيسية" description="اختر المظهر العام لشاشة عرض المرضى.">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {themes.map(theme => (
+                            <PublicThemeCard
+                                key={theme.id}
+                                theme={theme}
+                                isSelected={localSettings.publicTheme === theme.id}
+                                onSelect={() => setLocalSettings(prev => ({ ...prev, publicTheme: theme.id }))}
+                            />
+                        ))}
+                    </div>
+                </Section>
+                <Section title="لون التمييز (Accent)" description="اختر اللون المستخدم للأزرار والعناصر المميزة في كل التطبيق.">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {themeCards.map(theme => (
-                            <ThemeCard
+                            <AccentThemeCard
                                 key={theme.color}
                                 theme={theme}
                                 isSelected={localSettings.themeColor === theme.color}
@@ -264,8 +293,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                       إلغاء
                   </button>
                   <button onClick={handleSave} disabled={isSaving} className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2.5 px-6 rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2 shadow-sm">
-                      {isSaving && <SpinnerIcon className="w-5 h-5" />}
-                      {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                    {isSaving && <SpinnerIcon className="w-5 h-5" />}
+                    {isSaving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
                   </button>
               </div>
             </footer>
@@ -276,109 +305,140 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
   );
 };
 
-const Section: FC<{title: string, description: string, children: React.ReactNode}> = ({title, description, children}) => (
-    <div className="mb-10">
-        <div>
-            <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-            <p className="mt-1 text-sm text-gray-500">{description}</p>
-        </div>
-        <div className="mt-4 p-5 bg-gray-50 rounded-xl border border-gray-200/80">
+interface SectionProps {
+    title: string;
+    description: string;
+    children: React.ReactNode;
+}
+const Section: FC<SectionProps> = ({ title, description, children }) => (
+    <div className="mb-8">
+        <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+        <p className="text-sm text-gray-500 mb-4">{description}</p>
+        <div className="p-6 bg-gray-50/80 rounded-xl border border-gray-200/80">
             {children}
         </div>
     </div>
 );
 
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+    icon: React.ReactNode;
+}
+const Input: FC<InputProps> = ({ label, icon, name, ...props }) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+        <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400">
+                {icon}
+            </div>
+            <input name={name} id={name} {...props} className="form-input !pr-10" />
+        </div>
+    </div>
+);
 
-const SideTab: FC<{id: string, activeTab: string, setActiveTab: (id: string) => void, icon: React.ReactNode, label: string}> = ({id, activeTab, setActiveTab, icon, label}) => (
+interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+    label: string;
+    icon: React.ReactNode;
+}
+const TextArea: FC<TextAreaProps> = ({ label, icon, name, ...props }) => (
+     <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+        <div className="relative">
+            <div className="pointer-events-none absolute top-3.5 right-0 flex items-center pr-3.5 text-gray-400">
+                {icon}
+            </div>
+            <textarea name={name} id={name} {...props} rows={3} className="form-input !pr-10" />
+        </div>
+    </div>
+);
+
+interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+    icon: React.ReactNode;
+    showPassword;
+    toggleShowPassword;
+    helperText?: string;
+}
+const PasswordInput: FC<PasswordInputProps> = ({ label, icon, name, showPassword, toggleShowPassword, helperText, ...props}) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+        <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400">
+                {icon}
+            </div>
+            <input name={name} id={name} type={showPassword ? 'text' : 'password'} {...props} className="form-input !pr-10 !pl-10" />
+            <button type="button" onClick={toggleShowPassword} className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 hover:text-gray-600">
+                {showPassword ? <EyeSlashIcon className="w-5 h-5"/> : <EyeIcon className="w-5 h-5" />}
+            </button>
+        </div>
+        {helperText && <p className="mt-1 text-xs text-gray-500">{helperText}</p>}
+    </div>
+);
+
+
+interface ToggleSwitchProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+    description?: string;
+}
+const ToggleSwitch: FC<ToggleSwitchProps> = ({ name, label, description, checked, onChange }) => (
+    <label htmlFor={name} className="flex items-center justify-between p-3 rounded-lg bg-white border border-gray-200/80 cursor-pointer hover:bg-gray-200/20 transition-colors">
+      <div>
+        <span className="font-medium text-gray-700 text-sm">{label}</span>
+        {description && <p className="text-xs text-gray-500">{description}</p>}
+      </div>
+      <div className="relative inline-flex items-center cursor-pointer">
+          <input
+              id={name}
+              name={name}
+              type="checkbox"
+              checked={checked}
+              onChange={onChange}
+              className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] rtl:after:right-[1px] rtl:after:left-auto after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
+      </div>
+    </label>
+);
+
+const FormFieldPreview: FC<ToggleSwitchProps & { icon: React.ReactNode }> = ({ icon, name, label, checked, onChange }) => (
+    <div className="bg-white p-3 rounded-lg border border-gray-200/80 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+            {icon}
+            <span className="font-semibold text-sm text-gray-700">{label}</span>
+        </div>
+        <div className="relative inline-flex items-center cursor-pointer">
+            <input
+                id={name}
+                name={name}
+                type="checkbox"
+                checked={checked}
+                onChange={onChange}
+                className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] rtl:after:right-[2px] rtl:after:left-auto after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
+        </div>
+    </div>
+);
+
+interface SideTabProps {
+    id: string;
+    activeTab: string;
+    setActiveTab: (id: string) => void;
+    icon: React.ReactNode;
+    label: string;
+}
+const SideTab: FC<SideTabProps> = ({ id, activeTab, setActiveTab, icon, label }) => (
     <button
         onClick={() => setActiveTab(id)}
-        className={`w-full flex-shrink-0 flex items-center gap-3 text-right px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+        className={`w-full flex items-center gap-3 text-right px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
             activeTab === id
             ? 'bg-[var(--theme-color)] text-white shadow'
-            : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'
+            : 'text-gray-600 hover:bg-gray-200/60 hover:text-gray-900'
         }`}
     >
         {icon}
         <span>{label}</span>
     </button>
 );
-
-const Input: FC<React.InputHTMLAttributes<HTMLInputElement> & {label: string, icon?: React.ReactNode}> = ({label, name, icon, ...props}) => (
-    <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-        <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
-                {icon}
-            </div>
-            <input id={name} name={name} {...props} className="form-input !pr-10" />
-        </div>
-    </div>
-);
-
-const PasswordInput: FC<React.InputHTMLAttributes<HTMLInputElement> & {label: string, icon?: React.ReactNode, showPassword?: boolean, toggleShowPassword?: () => void, helperText?: string}> = ({label, name, icon, showPassword, toggleShowPassword, helperText, ...props}) => (
-    <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-        <div className="relative">
-             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
-                {icon}
-            </div>
-            <input id={name} name={name} {...props} type={showPassword ? 'text' : 'password'} className="form-input !pl-10 !pr-10" />
-            <button
-                type="button"
-                onClick={toggleShowPassword}
-                className="absolute inset-y-0 left-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
-                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-            >
-                {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-            </button>
-        </div>
-        {helperText && <p className="mt-1.5 text-xs text-gray-500">{helperText}</p>}
-    </div>
-);
-
-const TextArea: FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & {label: string, icon?: React.ReactNode}> = ({label, name, icon, ...props}) => (
-    <div>
-        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
-        <div className="relative">
-            <div className="pointer-events-none absolute top-3 right-0 flex items-center pr-3 text-gray-400">
-                {icon}
-            </div>
-            <textarea id={name} name={name} rows={4} {...props} className="form-input !pr-10" />
-        </div>
-    </div>
-);
-
-const ToggleSwitch: FC<React.InputHTMLAttributes<HTMLInputElement> & {label: string, description?: string}> = ({label, name, description, ...props}) => (
-    <label htmlFor={name} className="flex items-center justify-between cursor-pointer p-3 rounded-lg hover:bg-gray-200/50 transition-colors -m-3">
-        <div>
-            <span className="font-medium text-gray-800">{label}</span>
-            {description && <p className="text-xs text-gray-500">{description}</p>}
-        </div>
-        <div className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id={name} name={name} {...props} className="sr-only peer" />
-            <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] rtl:after:right-[1px] rtl:after:left-auto after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
-        </div>
-    </label>
-);
-
-const FormFieldPreview: FC<{
-  label: string;
-  icon: React.ReactNode;
-  name: keyof ClinicSettings;
-  checked: boolean;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}> = ({ label, icon, name, checked, onChange }) => (
-  <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-    <div className="flex items-center gap-3">
-      <div className="text-gray-400">{icon}</div>
-      <span className="font-semibold text-gray-800">{label}</span>
-    </div>
-    <label htmlFor={name.toString()} className="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" id={name.toString()} name={name.toString()} checked={checked} onChange={onChange} className="sr-only peer" />
-        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] rtl:after:right-[1px] rtl:after:left-auto after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
-    </label>
-  </div>
-);
-
 
 export default SettingsModal;

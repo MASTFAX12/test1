@@ -1,5 +1,70 @@
 import type { Timestamp } from 'firebase/firestore';
 
+// NEW THEME DEFINITIONS
+export interface PublicTheme {
+  id: string;
+  name: string;
+  background: string;
+  primaryText: string;
+  secondaryText: string;
+  cardBackground: string;
+  cardBorder: string;
+  timeDisplayBackground: string;
+  listItemDefaultBackground: string;
+}
+
+export const themes: PublicTheme[] = [
+  {
+    id: 'deep-ocean',
+    name: 'محيط هادئ',
+    background: 'bg-[#1a1a2e]',
+    primaryText: 'text-white',
+    secondaryText: 'text-gray-300',
+    cardBackground: 'bg-white/5 backdrop-blur-lg',
+    cardBorder: 'border-white/20',
+    timeDisplayBackground: 'bg-white/10 backdrop-blur-sm',
+    listItemDefaultBackground: 'bg-white/10',
+  },
+  {
+    id: 'modern-light',
+    name: 'نهاري حديث',
+    background: 'bg-gray-100',
+    primaryText: 'text-gray-800',
+    secondaryText: 'text-gray-600',
+    cardBackground: 'bg-white/80 backdrop-blur-lg',
+    cardBorder: 'border-gray-200',
+    timeDisplayBackground: 'bg-white shadow-sm',
+    listItemDefaultBackground: 'bg-black/5',
+  },
+  {
+    id: 'forest-calm',
+    name: 'غابة هادئة',
+    background: 'bg-emerald-900',
+    primaryText: 'text-white',
+    secondaryText: 'text-emerald-200',
+    cardBackground: 'bg-white/5 backdrop-blur-lg',
+    cardBorder: 'border-white/20',
+    timeDisplayBackground: 'bg-white/10 backdrop-blur-sm',
+    listItemDefaultBackground: 'bg-white/10',
+  },
+  {
+    id: 'royal-purple',
+    name: 'بنفسجي ملكي',
+    background: 'bg-purple-900',
+    primaryText: 'text-white',
+    secondaryText: 'text-purple-200',
+    cardBackground: 'bg-white/5 backdrop-blur-lg',
+    cardBorder: 'border-white/20',
+    timeDisplayBackground: 'bg-white/10 backdrop-blur-sm',
+    listItemDefaultBackground: 'bg-white/10',
+  },
+];
+
+export const getThemeById = (id: string | undefined | null): PublicTheme => {
+  return themes.find(theme => theme.id === id) || themes[0];
+};
+// END NEW THEME DEFINITIONS
+
 export enum PatientStatus {
   Waiting = 'waiting',
   InProgress = 'inprogress',
@@ -76,6 +141,7 @@ export interface ClinicSettings {
   // Marquee controls
   marqueeSpeed: number;
   callDuration: number;
+  publicTheme: string;
 }
 
 export interface ChatMessage {

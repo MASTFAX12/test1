@@ -1,7 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
 
-const TimeDisplay: React.FC = () => {
+import React, { useState, useEffect } from 'react';
+import type { PublicTheme } from '../types.ts';
+
+interface TimeDisplayProps {
+    theme: PublicTheme;
+}
+
+const TimeDisplay: React.FC<TimeDisplayProps> = ({ theme }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -10,7 +16,7 @@ const TimeDisplay: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm text-white font-semibold px-4 py-2 rounded-lg shadow-lg text-sm md:text-base">
+    <div className={`${theme.timeDisplayBackground} ${theme.primaryText} font-semibold px-4 py-2 rounded-lg shadow-lg text-sm md:text-base`}>
       {time.toLocaleString('ar-SA', {
         weekday: 'long',
         year: 'numeric',

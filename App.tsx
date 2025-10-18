@@ -17,6 +17,7 @@ import {
   reorderPatientQueue
 } from './services/firebase.ts';
 import { playNotificationSound } from './utils/audio.ts';
+import { getThemeById } from './types.ts';
 
 import AdminPanel from './components/AdminPanel.tsx';
 import CurrentPatientCard from './components/CurrentPatientCard.tsx';
@@ -55,9 +56,18 @@ function App() {
     } catch (e) {
         console.error("Failed to save theme to localStorage", e);
     }
-    document.body.style.backgroundColor = role === Role.Public ? '#1a1a2e' : '#f8fafc'; // Use a lighter, cleaner gray for admin
+    
+    // Apply theme for public view or default for admin
+    document.body.className = ''; // Reset classes
+    if (role === Role.Public) {
+        const currentTheme = getThemeById(settings.publicTheme);
+        document.body.classList.add(...currentTheme.background.split(' '));
+    } else {
+        document.body.classList.add('bg-slate-100');
+    }
+    
     document.body.dir = 'rtl';
-  }, [settings.themeColor, role]);
+  }, [settings.themeColor, settings.publicTheme, role]);
 
   useEffect(() => {
     if (role !== Role.Public && prevPatients && patients.length > prevPatients.length) {
@@ -204,16 +214,17 @@ function App() {
   if (role === Role.Public) {
     const PUBLIC_DISPLAY_LIMIT = 15;
     const displayedWaiting = waitingPatients.slice(0, PUBLIC_DISPLAY_LIMIT);
+    const currentTheme = getThemeById(settings.publicTheme);
 
     return (
       <>
         <main className="container mx-auto p-4 md:p-6 grid grid-rows-[auto_1fr_auto] gap-6 h-screen">
           <header className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-right">
-              <h1 className="text-4xl md:text-5xl font-bold text-white">{settings.clinicName}</h1>
-              <p className="text-lg md:text-xl text-gray-300">{settings.doctorName} - {settings.clinicSpecialty}</p>
+              <h1 className={`text-4xl md:text-5xl font-bold ${currentTheme.primaryText}`}>{settings.clinicName}</h1>
+              <p className={`text-lg md:text-xl ${currentTheme.secondaryText}`}>{settings.doctorName} - {settings.clinicSpecialty}</p>
             </div>
-            <TimeDisplay />
+            <TimeDisplay theme={currentTheme} />
           </header>
 
           <div className="grid md:grid-cols-3 gap-6 overflow-hidden">
@@ -224,23 +235,24 @@ function App() {
                 title="في غرفة الفحص"
                 noPatientText="لا يوجد مراجع حالياً"
                 callingTitle="الرجاء التوجه لغرفة الفحص"
+                theme={currentTheme}
               />
             </div>
-            <div className="bg-white/5 backdrop-blur-lg p-4 rounded-2xl shadow-lg border border-white/20 flex flex-col">
-              <h2 className="text-2xl font-bold text-center text-white mb-4 flex-shrink-0">قائمة الانتظار ({waitingPatients.length})</h2>
+            <div className={`${currentTheme.cardBackground} p-4 rounded-2xl shadow-lg border ${currentTheme.cardBorder} flex flex-col`}>
+              <h2 className={`text-2xl font-bold text-center ${currentTheme.primaryText} mb-4 flex-shrink-0`}>قائمة الانتظار ({waitingPatients.length})</h2>
               <ul className="space-y-3 overflow-y-auto h-full pr-2">
                 {displayedWaiting.length > 0 ? (
                   displayedWaiting.map((p, index) => (
-                    <li key={p.id} className="bg-white/10 p-3 rounded-lg text-xl md:text-2xl font-semibold text-white shadow-sm flex items-center gap-4 animate-fade-in">
+                    <li key={p.id} className={`${currentTheme.listItemDefaultBackground} p-3 rounded-lg text-xl md:text-2xl font-semibold ${currentTheme.primaryText} shadow-sm flex items-center gap-4 animate-fade-in`}>
                       <span className="bg-[var(--theme-color)] text-white rounded-full h-9 w-9 flex items-center justify-center font-bold text-base flex-shrink-0 shadow-md">{index + 1}</span>
                       {p.name}
                     </li>
                   ))
                 ) : (
-                  <p className="text-center text-gray-400 pt-8">لا يوجد مراجعون في الانتظار.</p>
+                  <p className={`text-center ${currentTheme.secondaryText} pt-8`}>لا يوجد مراجعون في الانتظار.</p>
                 )}
                  {waitingPatients.length > PUBLIC_DISPLAY_LIMIT && (
-                    <li className="text-center text-gray-400 pt-2 text-lg">
+                    <li className={`text-center ${currentTheme.secondaryText} pt-2 text-lg`}>
                         ... و {waitingPatients.length - PUBLIC_DISPLAY_LIMIT} آخرون في الانتظار
                     </li>
                  )}
@@ -249,7 +261,7 @@ function App() {
           </div>
 
           <footer className="flex justify-between items-center gap-4">
-            <Marquee text={settings.publicMessage} speed={settings.marqueeSpeed} />
+            <Marquee text={settings.publicMessage} speed={settings.marqueeSpeed} theme={currentTheme} />
           </footer>
         </main>
         <button

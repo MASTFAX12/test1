@@ -1,5 +1,6 @@
+
 import React from 'react';
-import type { PatientVisit } from '../types.ts';
+import type { PatientVisit, PublicTheme } from '../types.ts';
 import { PatientStatus } from '../types.ts';
 import { UserIcon } from './Icons.tsx';
 
@@ -9,22 +10,23 @@ interface CurrentPatientCardProps {
   title: string;
   noPatientText: string;
   callingTitle: string;
+  theme: PublicTheme;
 }
 
-const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callingPatient, title, noPatientText, callingTitle }) => {
+const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callingPatient, title, noPatientText, callingTitle, theme }) => {
   const isCalling = !!callingPatient;
   const currentPatient = !isCalling && patient && patient.status === PatientStatus.InProgress ? patient : null;
 
   const containerClasses = isCalling
     ? 'bg-gradient-to-br from-[var(--theme-color)] to-cyan-400 rounded-2xl p-6 text-center shadow-lg border-4 border-white/50 relative h-full flex flex-col justify-center animate-pulse-intense'
-    : 'bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 text-center shadow-lg border-2 border-white/20 relative overflow-hidden h-full flex flex-col';
+    : `${theme.cardBackground} rounded-2xl p-6 text-center shadow-lg border-2 ${theme.cardBorder} relative overflow-hidden h-full flex flex-col`;
 
   return (
     <div className={containerClasses}>
       {!isCalling && (
         <>
           <div className="absolute inset-0 animate-shimmer" />
-          <UserIcon className="absolute inset-0 w-full h-full text-white opacity-5 p-8" />
+          <UserIcon className={`absolute inset-0 w-full h-full ${theme.primaryText} opacity-5 p-8`} />
         </>
       )}
 
@@ -42,17 +44,17 @@ const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callin
           <>
             {currentPatient ? (
               <>
-                <h2 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-white drop-shadow-md mb-4 break-words leading-tight">
+                <h2 className={`text-4xl sm:text-5xl lg:text-7xl font-bold ${theme.primaryText} drop-shadow-md mb-4 break-words leading-tight`}>
                   {currentPatient.name}
                 </h2>
                 {currentPatient.reason && (
-                  <p className="text-2xl lg:text-3xl text-gray-300 opacity-90 mt-2">
+                  <p className={`text-2xl lg:text-3xl ${theme.secondaryText} opacity-90 mt-2`}>
                     {currentPatient.reason}
                   </p>
                 )}
               </>
             ) : (
-              <div className="text-4xl lg:text-5xl font-bold text-white opacity-60">
+              <div className={`text-4xl lg:text-5xl font-bold ${theme.primaryText} opacity-60`}>
                 {noPatientText}
               </div>
             )}

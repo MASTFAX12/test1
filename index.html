@@ -75,15 +75,14 @@
         }
         /* Base styles for form inputs */
         .form-input {
-            @apply block w-full px-4 py-2.5 
-                   bg-white 
-                   text-black 
-                   border-2 border-gray-200 
-                   rounded-lg 
-                   shadow-sm 
+            @apply block w-full px-4 py-2
+                   bg-gray-50
+                   border border-gray-300
+                   rounded-lg
                    transition-all duration-200 ease-in-out;
-            @apply focus:ring-2 focus:ring-opacity-50 focus:border-[var(--theme-color)];
+            @apply focus:ring-2 focus:ring-offset-1 focus:ring-opacity-75 focus:border-[var(--theme-color)] focus:bg-white;
             --tw-ring-color: var(--theme-color);
+            color: #0f172a; /* Explicitly set to slate-900 for high contrast */
             color-scheme: light;
         }
         /* Improve placeholder text visibility */
@@ -93,19 +92,18 @@
         }
         /* Custom scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #f1f5f9;
+            background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
+            background-color: #e2e8f0; /* slate-200 */
             border-radius: 10px;
-            border: 2px solid #f1f5f9;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background-color: #94a3b8;
+            background-color: #cbd5e1; /* slate-300 */
         }
     </style>
 </head>

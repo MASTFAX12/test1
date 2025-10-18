@@ -88,26 +88,26 @@ const PatientCard: FC<PatientCardProps> = ({
   isNewlyAddedToPayment
 }) => {
   const statusConfig = {
-    [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800', borderColor: 'border-blue-500' },
-    [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-100 text-red-800', borderColor: 'border-red-500' },
-    [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', color: 'bg-yellow-100 text-yellow-800', borderColor: 'border-yellow-500' },
-    [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-100 text-green-800', borderColor: 'border-green-500' },
-    [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-400' },
-    [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-400' },
+    [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800', borderColor: 'border-blue-400' },
+    [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-100 text-red-800', borderColor: 'border-red-400' },
+    [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', color: 'bg-yellow-100 text-yellow-800', borderColor: 'border-yellow-400' },
+    [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-100 text-green-800', borderColor: 'border-green-400' },
+    [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-300' },
+    [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-300' },
   };
 
   const { text: statusText, color: statusColor, borderColor } = statusConfig[patient.status] || {};
   const isWaiting = patient.status === PatientStatus.Waiting;
 
   const cardClasses = [
-    'bg-white rounded-xl p-4 shadow-sm border-r-4 transition-all duration-300 relative group',
-    isBeingCalled ? 'ring-2 ring-[var(--theme-color)] animate-pulse' : 'hover:shadow-md',
+    'bg-white rounded-xl p-4 shadow-sm border-l-4 transition-all duration-300 relative group',
+    isBeingCalled ? 'ring-2 ring-[var(--theme-color)] animate-pulse' : 'hover:shadow-lg hover:-translate-y-1',
     isDraggable ? 'cursor-grab' : '',
     isNextToPay ? 'ring-2 ring-yellow-400' : '',
     borderColor
   ].join(' ');
 
-  const actionButtonClasses = "w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-[var(--theme-color)] hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+  const actionButtonClasses = "w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-[var(--theme-color)] hover:bg-gray-100 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
     <div 
@@ -120,28 +120,26 @@ const PatientCard: FC<PatientCardProps> = ({
       onDragLeave={onDragLeaveReorder}
     >
       <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          {index !== undefined && <span className="flex-shrink-0 bg-gray-200 text-gray-700 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center">{index + 1}</span>}
+        <div className="flex items-center gap-3">
+          {index !== undefined && <span className="flex-shrink-0 bg-gray-100 text-gray-600 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center border border-gray-200">{index + 1}</span>}
           <div className="flex-grow">
             <h3 className="font-bold text-gray-800 text-lg">{patient.name}</h3>
-            {patient.reason && patient.showDetailsToPublic && <p className="text-sm text-gray-500 mt-1">{patient.reason}</p>}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
             <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusText}</span>
             {isNextToPay && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900 mt-1">التالي للدفع</span>}
             {isNewlyAddedToPayment && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 mt-1 animate-pulse">جديد للدفع</span>}
         </div>
       </div>
       
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
-        <div className="flex items-center gap-2"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
-        {patient.phone && <div className="flex items-center gap-2"><PhoneIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">الهاتف:</span> {patient.phone}</div>}
-        <div className="flex items-center gap-2 col-span-2"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المبلغ المطلوب:</span> <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></div>
+      <div className="mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
+        <div className="flex items-center gap-1.5"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
+        {patient.phone && <div className="flex items-center gap-1.5"><PhoneIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">الهاتف:</span> {patient.phone}</div>}
+        <div className="flex items-center gap-1.5 col-span-2"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المبلغ المطلوب:</span> <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></div>
       </div>
       
-      {/* Action buttons are now absolutely positioned for a cleaner look on hover */}
-      <div className="absolute bottom-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/50 backdrop-blur-sm p-1 rounded-lg">
+      <div className="absolute bottom-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/70 backdrop-blur-sm p-1 rounded-lg border border-gray-200 shadow-sm">
           {/* Actions for All Roles */}
           {patient.patientProfileId && (
             <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={actionButtonClasses}><ArchiveBoxIcon className="w-5 h-5" /></button>
@@ -202,9 +200,9 @@ const QueueSection: FC<{
 }> = ({ title, children, count, isDragOver, color, ...dragProps }) => (
     <div 
       {...dragProps}
-      className={`bg-gray-100/70 p-3 rounded-xl border border-gray-200/80 flex flex-col transition-colors duration-300 h-full ${isDragOver ? 'bg-blue-100 border-blue-300' : ''}`}
+      className={`bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex flex-col transition-colors duration-300 h-full ${isDragOver ? 'bg-blue-50 border-blue-300' : ''}`}
     >
-      <div className="flex justify-between items-center mb-4 flex-shrink-0 px-1">
+      <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <h2 className="text-lg font-bold text-slate-800">{title}</h2>
         <span className={`text-sm font-bold px-2.5 py-1 rounded-full text-white ${color}`}>{count}</span>
       </div>
@@ -419,7 +417,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
               placeholder="ابحث عن مراجع بالاسم..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input pr-12"
+              className="form-input !pr-12"
             />
             {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"><XMarkIcon className="w-5 h-5" /></button>}
           </div>

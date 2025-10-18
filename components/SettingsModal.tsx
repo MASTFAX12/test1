@@ -128,11 +128,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
         <div className="animate-fade-in">
             {activeTab === 'general' && (
               <Section title="المعلومات الأساسية" description="إدارة المعلومات الرئيسية التي تظهر للعموم.">
-                <div className="space-y-6">
-                    <Input icon={<BuildingOffice2Icon className="w-5 h-5"/>} name="clinicName" label="اسم العيادة" value={localSettings.clinicName} onChange={handleChange} />
-                    <Input icon={<AcademicCapIcon className="w-5 h-5"/>} name="doctorName" label="اسم الطبيب" value={localSettings.doctorName} onChange={handleChange} />
-                    <Input icon={<SparklesIcon className="w-5 h-5"/>} name="clinicSpecialty" label="تخصص العيادة" value={localSettings.clinicSpecialty} onChange={handleChange} />
-                    <TextArea icon={<MegaphoneIcon className="w-5 h-5"/>} name="publicMessage" label="رسالة الشاشة العامة" value={localSettings.publicMessage} onChange={handleChange} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-1">
+                        <Input icon={<BuildingOffice2Icon className="w-5 h-5"/>} name="clinicName" label="اسم العيادة" value={localSettings.clinicName} onChange={handleChange} />
+                    </div>
+                    <div className="md:col-span-1">
+                        <Input icon={<AcademicCapIcon className="w-5 h-5"/>} name="doctorName" label="اسم الطبيب" value={localSettings.doctorName} onChange={handleChange} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <Input icon={<SparklesIcon className="w-5 h-5"/>} name="clinicSpecialty" label="تخصص العيادة" value={localSettings.clinicSpecialty} onChange={handleChange} />
+                    </div>
+                    <div className="md:col-span-2">
+                        <TextArea icon={<MegaphoneIcon className="w-5 h-5"/>} name="publicMessage" label="رسالة الشاشة العامة" value={localSettings.publicMessage} onChange={handleChange} />
+                    </div>
                 </div>
               </Section>
             )}
@@ -222,44 +230,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-full max-h-[720px] flex flex-col md:flex-row overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-full md:w-64 flex-shrink-0 bg-gray-100 p-4 border-b md:border-b-0 md:border-l border-gray-200">
-             <header className="flex justify-between items-center p-2 mb-6">
-                <h2 className="text-lg font-bold text-gray-800">الإعدادات</h2>
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 md:hidden">
-                    <XMarkIcon className="w-6 h-6 text-gray-600" />
-                </button>
-            </header>
-            <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
-                <SideTab id="general" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Cog8ToothIcon className="w-5 h-5"/>} label="عام" />
-                <SideTab id="services" activeTab={activeTab} setActiveTab={setActiveTab} icon={<CurrencyDollarIcon className="w-5 h-5"/>} label="الخدمات" />
-                <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
-                <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
-                <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
-            </nav>
-        </aside>
+      <div className="bg-gradient-to-br from-gray-200 to-gray-100 p-1 rounded-3xl shadow-2xl w-full max-w-5xl h-full max-h-[720px]">
+        <div className="bg-white rounded-2xl w-full h-full flex flex-col md:flex-row overflow-hidden">
+          {/* Sidebar */}
+          <aside className="w-full md:w-64 flex-shrink-0 bg-gray-100 p-4 border-b md:border-b-0 md:border-l border-gray-200">
+              <header className="flex justify-between items-center p-2 mb-6">
+                  <h2 className="text-lg font-bold text-gray-800">الإعدادات</h2>
+                  <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 md:hidden">
+                      <XMarkIcon className="w-6 h-6 text-gray-600" />
+                  </button>
+              </header>
+              <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
+                  <SideTab id="general" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Cog8ToothIcon className="w-5 h-5"/>} label="عام" />
+                  <SideTab id="services" activeTab={activeTab} setActiveTab={setActiveTab} icon={<CurrencyDollarIcon className="w-5 h-5"/>} label="الخدمات" />
+                  <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
+                  <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
+                  <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
+              </nav>
+          </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col min-h-0">
-          <div className="flex-grow p-6 md:p-8 overflow-y-auto">
-            {renderTabContent()}
-          </div>
-          <footer className="p-4 border-t bg-gray-50/70 flex justify-between items-center">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 hidden md:block">
-                <XMarkIcon className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="flex justify-end gap-3 w-full">
-                <button type="button" onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
-                    إلغاء
-                </button>
-                <button onClick={handleSave} disabled={isSaving} className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2.5 px-6 rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2 shadow-sm">
-                    {isSaving && <SpinnerIcon className="w-5 h-5" />}
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-                </button>
+          {/* Main Content */}
+          <main className="flex-1 flex flex-col min-h-0">
+            <div className="flex-grow p-6 md:p-8 overflow-y-auto">
+              {renderTabContent()}
             </div>
-          </footer>
-        </main>
+            <footer className="p-4 border-t bg-gray-50/70 flex justify-between items-center">
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 hidden md:block">
+                  <XMarkIcon className="w-6 h-6 text-gray-600" />
+              </button>
+              <div className="flex justify-end gap-3 w-full">
+                  <button type="button" onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
+                      إلغاء
+                  </button>
+                  <button onClick={handleSave} disabled={isSaving} className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2.5 px-6 rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2 shadow-sm">
+                      {isSaving && <SpinnerIcon className="w-5 h-5" />}
+                      {isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                  </button>
+              </div>
+            </footer>
+          </main>
+        </div>
       </div>
     </div>
   );
@@ -299,7 +309,7 @@ const Input: FC<React.InputHTMLAttributes<HTMLInputElement> & {label: string, ic
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
                 {icon}
             </div>
-            <input id={name} name={name} {...props} className="form-input pr-10" />
+            <input id={name} name={name} {...props} className="form-input !pr-10" />
         </div>
     </div>
 );
@@ -311,7 +321,7 @@ const PasswordInput: FC<React.InputHTMLAttributes<HTMLInputElement> & {label: st
              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
                 {icon}
             </div>
-            <input id={name} name={name} {...props} type={showPassword ? 'text' : 'password'} className="form-input pl-10 pr-10" />
+            <input id={name} name={name} {...props} type={showPassword ? 'text' : 'password'} className="form-input !pl-10 !pr-10" />
             <button
                 type="button"
                 onClick={toggleShowPassword}
@@ -332,7 +342,7 @@ const TextArea: FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & {label: s
             <div className="pointer-events-none absolute top-3 right-0 flex items-center pr-3 text-gray-400">
                 {icon}
             </div>
-            <textarea id={name} name={name} rows={4} {...props} className="form-input pr-10" />
+            <textarea id={name} name={name} rows={4} {...props} className="form-input !pr-10" />
         </div>
     </div>
 );

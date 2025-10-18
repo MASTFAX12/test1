@@ -29,7 +29,7 @@ const formatDateSeparator = (date: Date) => {
 
 const DateSeparator: FC<{ date: Date }> = ({ date }) => (
     <div className="text-center text-xs text-gray-500 font-semibold my-4">
-        <span className="bg-gray-200/80 px-3 py-1 rounded-full">{formatDateSeparator(date)}</span>
+        <span className="bg-slate-200 px-3 py-1 rounded-full">{formatDateSeparator(date)}</span>
     </div>
 );
 
@@ -91,8 +91,8 @@ const MessageBubble: FC<{
     }) ?? '';
 
     const bubbleClasses = [
-        'max-w-md p-3 relative group',
-        isSender ? 'bg-[var(--theme-color)] text-white' : 'bg-gray-200 text-gray-800',
+        'max-w-md p-3 relative group shadow-sm',
+        isSender ? 'bg-[var(--theme-color)] text-white' : 'bg-white text-gray-800 border border-gray-200/80',
         isFirstInGroup && isLastInGroup ? 'rounded-2xl' : '',
         isSender
             ? `${isFirstInGroup ? 'rounded-tr-2xl' : 'rounded-tr-md'} ${isLastInGroup ? 'rounded-br-lg' : 'rounded-br-md'} rounded-l-2xl`
@@ -103,18 +103,18 @@ const MessageBubble: FC<{
         <div className={`flex items-end gap-2 ${isSender ? 'flex-row-reverse' : 'flex-row'} ${isFirstInGroup ? 'mt-3' : 'mt-0.5'}`}>
              <div className="relative">
                 <div className={bubbleClasses}>
-                    {!isSender && isFirstInGroup && <p className="text-xs font-bold mb-1 text-[var(--theme-color)]">{senderName}</p>}
+                    {!isSender && isFirstInGroup && <p className="text-xs font-bold mb-1.5 text-[var(--theme-color)]">{senderName}</p>}
                     {message.imageUrl && (
-                        <div onClick={() => onViewImage(message.imageUrl)} className="block my-1 cursor-pointer">
-                            <img src={message.imageUrl} alt="محتوى مرسل" className="rounded-lg max-w-full h-auto max-h-56 object-cover bg-gray-300" />
+                        <div onClick={() => onViewImage(message.imageUrl)} className="block my-1 cursor-pointer overflow-hidden rounded-lg">
+                            <img src={message.imageUrl} alt="محتوى مرسل" className="max-w-full h-auto max-h-60 object-cover bg-gray-300" />
                         </div>
                     )}
-                    {message.text && <p className="text-sm break-words whitespace-pre-wrap">{message.text}</p>}
+                    {message.text && <p className="text-base break-words whitespace-pre-wrap">{message.text}</p>}
                 </div>
                 {isSender && (
                      <div className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-full ml-[-4px] flex items-center bg-white border rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button onClick={() => onStartEdit(message)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-100 rounded-full transition-colors"><PencilIcon className="w-4 h-4" /></button>
-                        <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-100 rounded-full transition-colors"><TrashIcon className="w-4 h-4" /></button>
+                        <button onClick={() => onStartEdit(message)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><PencilIcon className="w-4 h-4" /></button>
+                        <button onClick={() => onDelete(message.id)} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><TrashIcon className="w-4 h-4" /></button>
                     </div>
                 )}
             </div>
@@ -249,13 +249,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
   return (
      <>
         <div className="bg-white rounded-2xl shadow-lg flex flex-col h-full w-full">
-            <header className="flex justify-between items-center p-4 border-b flex-shrink-0">
+            <header className="flex justify-between items-center p-4 border-b border-slate-200 flex-shrink-0">
                 <h2 className="text-xl font-bold text-gray-800">الدردشة الداخلية</h2>
-                <button onClick={handleArchiveMessages} disabled={isArchiving} className="p-2 rounded-full hover:bg-gray-200 disabled:opacity-50" title="أرشفة جميع الرسائل">
+                <button onClick={handleArchiveMessages} disabled={isArchiving} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50" title="أرشفة جميع الرسائل">
                     {isArchiving ? <SpinnerIcon className="w-5 h-5 text-gray-600" /> : <ArchiveBoxIcon className="w-5 h-5 text-gray-600"/>}
                 </button>
             </header>
-            <div className="flex-grow p-4 overflow-y-auto bg-gray-50/50">
+            <div className="flex-grow p-4 overflow-y-auto bg-slate-50">
                 {loading && <div className="flex items-center justify-center h-full"><SpinnerIcon className="w-8 h-8 text-gray-400"/></div>}
                 {error && <p className="text-center text-red-500 pt-10">حدث خطأ في تحميل الرسائل.</p>}
                 {!loading && messages.length === 0 && (
@@ -268,12 +268,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
                 <div>{chatContent}</div>
                 <div ref={messagesEndRef} />
             </div>
-            <form onSubmit={handleSendMessage} className="p-3 border-t flex-shrink-0 bg-gray-100/70 rounded-b-2xl">
-                <div className="relative flex items-center gap-2">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="p-2.5 text-gray-500 hover:text-[var(--theme-color)] hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50" title="إرفاق صورة">
-                        {isUploading ? <SpinnerIcon className="w-5 h-5"/> : <PaperClipIcon className="w-5 h-5" />}
-                    </button>
-                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" disabled={isUploading} />
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 flex-shrink-0 bg-white">
+                <div className="relative">
                     <textarea
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
@@ -283,14 +279,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
                                 handleSendMessage(e);
                             }
                         }}
-                        className="form-input !pr-10 !rounded-full resize-none"
+                        className="form-input w-full resize-none rounded-full py-2.5 pr-12 pl-12 transition-all duration-200"
                         placeholder="اكتب رسالتك..."
                         disabled={isUploading}
                         rows={1}
                     />
-                    <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white bg-[var(--theme-color)] hover:opacity-90 rounded-full transition-transform active:scale-95 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={isUploading || !newMessage.trim()}>
-                        <PaperAirplaneIcon className="w-5 h-5" />
-                    </button>
+                    <div className="absolute top-1/2 -translate-y-1/2 right-3 flex items-center">
+                         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="p-2 text-gray-500 hover:text-[var(--theme-color)] hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50" title="إرفاق صورة">
+                            {isUploading ? <SpinnerIcon className="w-5 h-5"/> : <PaperClipIcon className="w-5 h-5" />}
+                        </button>
+                        <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" disabled={isUploading} />
+                    </div>
+                     <div className="absolute top-1/2 -translate-y-1/2 left-2 flex items-center">
+                        <button type="submit" className="p-2 text-white bg-[var(--theme-color)] hover:opacity-90 rounded-full transition-transform active:scale-95 disabled:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed" disabled={isUploading || !newMessage.trim()}>
+                            <PaperAirplaneIcon className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

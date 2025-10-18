@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import type { ClinicSettings } from '../types.ts';
 import { Role } from '../types.ts';
+import { AcademicCapIcon, UserIcon } from './Icons.tsx';
 
 interface LoginModalProps {
   onClose: () => void;
   onLoginSuccess: (role: Role) => void;
-  settings: ClinicSettings; 
+  settings: ClinicSettings;
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settings }) => {
@@ -39,24 +40,27 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
 
   const renderRoleSelection = () => (
     <>
-      <h2 className="text-3xl font-bold text-center text-white mb-8">اختر دورك للدخول</h2>
+      <h2 className="text-3xl font-bold text-center text-white mb-2">اختر دورك</h2>
+      <p className="text-center text-slate-400 mb-8">للوصول إلى لوحة التحكم</p>
       <div className="flex flex-col gap-4">
         <button
           onClick={() => handleRoleSelect(Role.Doctor)}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-transform hover:scale-105 w-full text-lg"
+          className="group flex items-center justify-center gap-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-white font-bold py-4 px-4 rounded-xl focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-800 ring-blue-500 transition-all duration-200 hover:scale-105 w-full text-lg"
         >
-          دخول كطبيب
+          <AcademicCapIcon className="w-6 h-6 text-blue-400 group-hover:text-white transition-colors"/>
+          <span>دخول كطبيب</span>
         </button>
         <button
           onClick={() => handleRoleSelect(Role.Secretary)}
-          className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-transform hover:scale-105 w-full text-lg"
+          className="group flex items-center justify-center gap-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 text-white font-bold py-4 px-4 rounded-xl focus:outline-none focus:ring-2 ring-offset-2 ring-offset-slate-800 ring-purple-500 transition-all duration-200 hover:scale-105 w-full text-lg"
         >
-          دخول كسكرتير
+          <UserIcon className="w-6 h-6 text-purple-400 group-hover:text-white transition-colors"/>
+          <span>دخول كسكرتير</span>
         </button>
          <button
             type="button"
             onClick={onClose}
-            className="mt-4 bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline transition-colors w-full"
+            className="mt-4 text-slate-400 hover:text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors w-full"
         >
             العودة للشاشة الرئيسية
         </button>
@@ -66,11 +70,11 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
 
   const renderPasswordInput = () => (
     <>
-      <h2 className="text-3xl font-bold text-center text-white mb-2">تسجيل دخول</h2>
-      <p className="text-center text-blue-200 mb-6">{selectedRole === Role.Doctor ? 'كطبيب' : 'كسكرتير'}</p>
+      <h2 className="text-3xl font-bold text-center text-white mb-2 drop-shadow-md">تسجيل دخول</h2>
+      <p className="text-center text-slate-300 mb-8">{selectedRole === Role.Doctor ? 'كطبيب' : 'كسكرتير'}</p>
       <form onSubmit={handleLogin} className="space-y-6">
         <div>
-          <label htmlFor="password" className="block text-white/80 text-sm font-bold mb-2">
+          <label htmlFor="password" className="block text-slate-300 text-sm font-medium mb-2">
             كلمة المرور
           </label>
           <input
@@ -81,15 +85,16 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
               setPassword(e.target.value);
               setError('');
             }}
-            className="form-input"
+            className="block w-full px-4 py-2.5 bg-slate-700 text-white border-2 border-slate-600 rounded-lg shadow-sm transition-all duration-200 ease-in-out focus:ring-2 focus:ring-opacity-50 focus:border-[var(--theme-color)] focus:ring-[var(--theme-color)]"
             autoFocus
           />
         </div>
         {error && <p className="text-red-400 text-center text-sm -my-2">{error}</p>}
-        <div className="flex flex-col gap-4 pt-2">
+        <div className="flex flex-col gap-3 pt-2">
           <button
             type="submit"
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline transition-colors w-full"
+            style={{ backgroundColor: 'var(--theme-color)' }}
+            className="text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-opacity hover:opacity-90 shadow-lg w-full"
           >
             دخول
           </button>
@@ -100,7 +105,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
               setPassword('');
               setError('');
             }}
-            className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline transition-colors w-full"
+            className="bg-transparent hover:bg-slate-700/50 border-2 border-slate-600 text-slate-300 hover:text-white font-bold py-2.5 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors w-full"
           >
             تغيير الدور
           </button>
@@ -110,8 +115,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onLoginSuccess, settin
   );
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex flex-col items-center justify-center z-50 animate-fade-in p-4">
-      <div className="bg-black/20 backdrop-blur-lg rounded-xl shadow-2xl p-8 w-full max-w-sm mx-auto border border-white/20">
+    <div className="fixed inset-0 bg-[#111827]/80 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-fade-in p-4">
+      <div className="bg-slate-800/80 rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-auto border border-slate-700">
         {step === 'role' ? renderRoleSelection() : renderPasswordInput()}
       </div>
     </div>

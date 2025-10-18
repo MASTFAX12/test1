@@ -24,7 +24,7 @@ import { toast } from 'react-hot-toast';
 import PatientHistoryModal from './PatientHistoryModal.tsx';
 import { usePrevious } from '../hooks/usePrevious.ts';
 import ConfirmationModal from './ConfirmationModal.tsx';
-import { updatePatientDetails, updatePatientStatus } from '../services/firebase.ts';
+import { updatePatientDetails, updatePatientStatus, archiveVisitsByIds } from '../services/firebase.ts';
 
 interface PaymentModalProps {
   patient: PatientVisit;
@@ -375,14 +375,18 @@ const QueueSection: FC<{
   onDragOver: (e: DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: DragEvent<HTMLDivElement>) => void;
   color: string;
-}> = ({ title, children, count, isDragOver, color, ...dragProps }) => (
+  actionButton?: React.ReactNode;
+}> = ({ title, children, count, isDragOver, color, actionButton, ...dragProps }) => (
     <div 
       {...dragProps}
       className={`bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex flex-col transition-colors duration-300 h-full ${isDragOver ? 'bg-blue-50 border-blue-300' : ''}`}
     >
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-        <span className={`text-sm font-bold px-2.5 py-1 rounded-full text-white ${color}`}>{count}</span>
+        <div className="flex items-center gap-2">
+            {actionButton}
+            <span className={`text-sm font-bold px-2.5 py-1 rounded-full text-white ${color}`}>{count}</span>
+        </div>
       </div>
       <div className="space-y-3 overflow-y-auto pr-2 -mr-2 flex-grow">
         {children}
@@ -395,6 +399,54 @@ const QueueSection: FC<{
     </div>
 );
 
+const filterableStatuses: (PatientStatus | 'all')[] = [
+  'all',
+  PatientStatus.Waiting,
+  PatientStatus.InProgress,
+  PatientStatus.PendingPayment,
+  PatientStatus.Done,
+  PatientStatus.Cancelled,
+  PatientStatus.Skipped,
+];
+
+const StatusFilter: FC<{
+  activeFilter: PatientStatus | 'all';
+  onSelectFilter: (status: PatientStatus | 'all') => void;
+  counts: Record<PatientStatus | 'all', number>;
+}> = ({ activeFilter, onSelectFilter, counts }) => {
+    const statusConfig = {
+        'all': { text: 'الكل', color: 'bg-slate-500' },
+        [PatientStatus.Waiting]: { text: 'الانتظار', color: 'bg-blue-500' },
+        [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-500' },
+        [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', color: 'bg-yellow-500' },
+        [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-500' },
+        [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-600' },
+        [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-500' },
+    };
+
+    return (
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mb-2">
+            {filterableStatuses.map(status => (
+                <button
+                    key={status}
+                    onClick={() => onSelectFilter(status)}
+                    className={`flex items-center gap-2 whitespace-nowrap text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-200 ${
+                        activeFilter === status
+                            ? `${statusConfig[status].color} text-white shadow`
+                            : `bg-white text-slate-600 hover:bg-slate-200/60 border border-slate-200`
+                    }`}
+                >
+                    <span>{statusConfig[status].text}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                        activeFilter === status
+                            ? 'bg-white/20'
+                            : 'bg-slate-200 text-slate-500'
+                    }`}>{counts[status]}</span>
+                </button>
+            ))}
+        </div>
+    );
+};
 
 const PatientQueueList: FC<PatientQueueListProps> = ({
   patients,
@@ -416,10 +468,13 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [notesPatient, setNotesPatient] = useState<PatientVisit | null>(null);
   const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<PatientStatus | 'all'>('all');
   const [draggedPatient, setDraggedPatient] = useState<PatientVisit | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<PatientStatus | null>(null);
   const [newlyAddedToPayment, setNewlyAddedToPayment] = useState<Set<string>>(new Set());
   const [visibleArchivedCount, setVisibleArchivedCount] = useState(10);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const prevPatients = usePrevious(patients);
 
   useEffect(() => {
@@ -445,14 +500,43 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     }
   }, [patients, prevPatients, role]);
 
+  const statusCounts = useMemo(() => {
+    const counts: Record<PatientStatus | 'all', number> = {
+        'all': patients.length,
+        [PatientStatus.Waiting]: 0,
+        [PatientStatus.InProgress]: 0,
+        [PatientStatus.PendingPayment]: 0,
+        [PatientStatus.Done]: 0,
+        [PatientStatus.Cancelled]: 0,
+        [PatientStatus.Skipped]: 0,
+    };
+    for (const patient of patients) {
+        if (counts[patient.status] !== undefined) {
+            counts[patient.status]++;
+        }
+    }
+    return counts;
+  }, [patients]);
+
   const filteredPatients = useMemo(() => {
-    if (!searchTerm) return patients;
-    const lowercasedFilter = searchTerm.toLowerCase().replace(/\s/g, '');
-    return patients.filter(patient => 
-      patient.name.toLowerCase().includes(lowercasedFilter) ||
-      patient.phone?.replace(/\s/g, '').includes(lowercasedFilter)
-    );
-  }, [patients, searchTerm]);
+    let results = patients;
+    
+    // 1. Filter by status
+    if (statusFilter !== 'all') {
+      results = results.filter(patient => patient.status === statusFilter);
+    }
+
+    // 2. Filter by search term
+    if (searchTerm) {
+      const lowercasedFilter = searchTerm.toLowerCase().replace(/\s/g, '');
+      results = results.filter(patient => 
+        patient.name.toLowerCase().includes(lowercasedFilter) ||
+        patient.phone?.replace(/\s/g, '').includes(lowercasedFilter)
+      );
+    }
+    
+    return results;
+  }, [patients, searchTerm, statusFilter]);
 
 
   const { waiting, inProgress, pendingPayment, completedOrCancelled } = useMemo(() => {
@@ -490,6 +574,27 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     } catch (error) {
       toast.error('فشل حفظ الملاحظات.', { id: toastId });
       console.error("Failed to save notes:", error);
+    }
+  };
+  
+  const handleArchiveCompleted = async () => {
+    setShowArchiveConfirm(false);
+    const idsToArchive = completedOrCancelled.map(p => p.id);
+    if (idsToArchive.length === 0) {
+        toast.info('لا توجد سجلات في الأرشيف لأرشفتها.');
+        return;
+    }
+
+    setIsArchiving(true);
+    const toastId = toast.loading('جاري أرشفة السجلات المكتملة...');
+    try {
+        const count = await archiveVisitsByIds(idsToArchive);
+        toast.success(`تمت أرشفة ${count} سجل بنجاح.`, { id: toastId });
+    } catch (error) {
+        toast.error('فشلت عملية الأرشفة.', { id: toastId });
+        console.error(error);
+    } finally {
+        setIsArchiving(false);
     }
   };
 
@@ -609,7 +714,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   return (
     <>
       <div className="flex flex-col h-full">
-        <div className="mb-4 flex-shrink-0">
+        <div className="mb-4 flex-shrink-0 space-y-4">
           <div className="relative">
             <MagnifyingGlassIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
@@ -621,6 +726,11 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
             />
             {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"><XMarkIcon className="w-5 h-5" /></button>}
           </div>
+          <StatusFilter 
+            activeFilter={statusFilter}
+            onSelectFilter={setStatusFilter}
+            counts={statusCounts}
+          />
         </div>
         <div className="grid grid-rows-1 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-grow min-h-0">
           <QueueSection title="الانتظار" count={waiting.length} isDragOver={dragOverColumn === PatientStatus.Waiting} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Waiting)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Waiting)} color="bg-blue-500">
@@ -632,7 +742,25 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
           <QueueSection title="بانتظار الدفع" count={pendingPayment.length} isDragOver={dragOverColumn === PatientStatus.PendingPayment} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.PendingPayment)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.PendingPayment)} color="bg-yellow-500">
             {pendingPayment.map((p, i) => renderPatient(p, { isNextToPay: i === 0, isNewlyAddedToPayment: newlyAddedToPayment.has(p.id) }))}
           </QueueSection>
-          <QueueSection title="الأرشيف" count={completedOrCancelled.length} isDragOver={dragOverColumn === PatientStatus.Cancelled} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Cancelled)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Cancelled)} color="bg-gray-500">
+          <QueueSection 
+            title="الأرشيف" 
+            count={completedOrCancelled.length} 
+            isDragOver={dragOverColumn === PatientStatus.Cancelled} 
+            onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Cancelled)} 
+            onDragLeave={handleDragLeaveColumn} 
+            onDrop={(e) => handleColumnDrop(e, PatientStatus.Cancelled)} 
+            color="bg-gray-500"
+            actionButton={
+              <button 
+                  onClick={() => setShowArchiveConfirm(true)} 
+                  disabled={isArchiving || completedOrCancelled.length === 0}
+                  className="p-1.5 rounded-full text-xs text-slate-500 hover:bg-slate-200 disabled:opacity-50" 
+                  title="أرشفة جميع السجلات في هذا العمود"
+              >
+                  {isArchiving ? <SpinnerIcon className="w-4 h-4"/> : <ArchiveBoxIcon className="w-4 h-4" />}
+              </button>
+            }
+          >
             {completedOrCancelled.slice(0, visibleArchivedCount).map(p => renderPatient(p))}
             {completedOrCancelled.length > visibleArchivedCount && (
                 <button 
@@ -680,6 +808,32 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
             setPatientToAction(null);
           }}
         />
+      )}
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <header className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-800">تأكيد الأرشفة</h2>
+              <button onClick={() => setShowArchiveConfirm(false)} className="p-2 rounded-full hover:bg-gray-100">
+                <XMarkIcon className="w-6 h-6 text-gray-600" />
+              </button>
+            </header>
+            <div className="p-6 flex-grow">
+              <p className="text-gray-600 text-center leading-relaxed">
+                سيتم أرشفة <strong>{completedOrCancelled.length}</strong> سجل من قائمة الأرشيف الحالية بشكل دائم.
+                <br/>
+                لن تظهر هذه السجلات في لوحة التحكم بعد الآن ولكن ستبقى في قاعدة البيانات للأغراض المرجعية. هل أنت متأكد؟
+              </p>
+            </div>
+            <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+              <button onClick={() => setShowArchiveConfirm(false)} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm">إلغاء</button>
+              <button onClick={handleArchiveCompleted} className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-sm">
+                <ArchiveBoxIcon className="w-5 h-5" />
+                نعم، أرشفة
+              </button>
+            </footer>
+          </div>
+        </div>
       )}
     </>
   );

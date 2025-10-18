@@ -20,5 +20,6 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   showAmountPaidField: false, // Defaulted to false as per new workflow
   marqueeSpeed: 20, // seconds for one full scroll
   callDuration: 10, // seconds for the call notification to be visible
+  archiveOlderThanDays: 90,
   publicTheme: 'deep-ocean',
 };

@@ -140,6 +140,7 @@ export interface ClinicSettings {
   // Marquee controls
   marqueeSpeed: number;
   callDuration: number;
+  archiveOlderThanDays: number;
   publicTheme: string;
 }
 

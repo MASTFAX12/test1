@@ -22,8 +22,9 @@ import {
   CakeIcon,
   PhoneIcon,
   PencilIcon as PencilSquareIcon,
+  ArchiveBoxIcon,
 } from './Icons.tsx';
-import { updateClinicSettings } from '../services/firebase.ts';
+import { updateClinicSettings, archiveOldPatientVisits } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
 
 interface SettingsModalProps {
@@ -86,6 +87,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [showDoctorPass, setShowDoctorPass] = useState(false);
   const [showSecretaryPass, setShowSecretaryPass] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -118,11 +122,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
     setLocalSettings(prev => ({ ...prev, services: [...prev.services, newService] }));
   };
 
-  const removeService = (id: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذه الخدمة؟ لا يمكن التراجع عن هذا الإجراء.')) {
-      setLocalSettings(prev => ({ ...prev, services: prev.services.filter(s => s.id !== id) }));
-      toast.success('تمت إزالة الخدمة. اضغط "حفظ" لتأكيد التغييرات.');
-    }
+  const handleConfirmRemoveService = () => {
+    if (!serviceToDelete) return;
+    setLocalSettings(prevSettings => {
+      const updatedServices = prevSettings.services.filter(s => s.id !== serviceToDelete);
+      return { ...prevSettings, services: updatedServices };
+    });
+    toast.success('تمت إزالة الخدمة. اضغط "حفظ" لتأكيد التغييرات.');
+    setServiceToDelete(null);
   };
 
   const handleSave = async () => {
@@ -137,6 +144,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
       toast.error("فشل حفظ الإعدادات.", { id: savingToast });
     } finally {
       setIsSaving(false);
+    }
+  };
+  
+  const handleArchive = async () => {
+    setShowArchiveConfirm(false);
+    setIsArchiving(true);
+    const toastId = toast.loading(`جاري أرشفة السجلات الأقدم من ${localSettings.archiveOlderThanDays} يوم...`);
+    try {
+        const count = await archiveOldPatientVisits(localSettings.archiveOlderThanDays);
+        toast.success(count > 0 ? `تمت أرشفة ${count} سجل بنجاح.` : `لا توجد سجلات قديمة للأرشفة.`, { id: toastId });
+    } catch (error) {
+        toast.error('فشلت عملية الأرشفة.', { id: toastId });
+        console.error(error);
+    } finally {
+        setIsArchiving(false);
     }
   };
   
@@ -216,7 +238,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                         <div key={service.id} className="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200/80">
                             <input type="text" value={service.name} onChange={e => handleServiceChange(service.id, 'name', e.target.value)} placeholder="اسم الخدمة" className="form-input flex-grow" />
                             <input type="number" value={service.price} onChange={e => handleServiceChange(service.id, 'price', parseInt(e.target.value, 10) || 0)} placeholder="السعر" className="form-input w-36 text-left" />
-                            <button onClick={() => removeService(service.id)} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition"><TrashIcon className="w-5 h-5"/></button>
+                            <button onClick={() => setServiceToDelete(service.id)} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition"><TrashIcon className="w-5 h-5"/></button>
                         </div>
                     ))}
                     {localSettings.services.length === 0 && (
@@ -254,54 +276,134 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 </div>
             </Section>
           )}
+           {activeTab === 'data' && (
+            <Section title="إدارة البيانات" description="تنفيذ عمليات الصيانة الدورية مثل أرشفة السجلات القديمة.">
+                <div className="space-y-4">
+                    <Input 
+                        icon={<ArchiveBoxIcon className="w-5 h-5"/>} 
+                        name="archiveOlderThanDays" 
+                        label="أرشفة الزيارات الأقدم من (أيام)" 
+                        type="number" 
+                        value={localSettings.archiveOlderThanDays?.toString() || '90'} 
+                        onChange={handleNumberChange} 
+                    />
+                    <p className="text-xs text-gray-500">سيتم أرشفة جميع الزيارات المكتملة أو الملغاة التي تاريخها أقدم من عدد الأيام المحدد. هذا الإجراء يساعد في الحفاظ على سرعة النظام.</p>
+                    <div className="pt-2">
+                        <button 
+                            onClick={() => setShowArchiveConfirm(true)} 
+                            disabled={isArchiving}
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm disabled:bg-yellow-300"
+                        >
+                            {isArchiving ? <SpinnerIcon className="w-5 h-5" /> : <ArchiveBoxIcon className="w-5 h-5" />}
+                            {isArchiving ? 'جاري الأرشفة...' : 'أرشفة السجلات القديمة الآن'}
+                        </button>
+                    </div>
+                </div>
+            </Section>
+           )}
         </div>
       );
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-gradient-to-br from-gray-200 to-gray-100 p-1 rounded-3xl shadow-2xl w-full max-w-5xl h-full max-h-[720px]">
-        <div className="bg-white rounded-2xl w-full h-full flex flex-col md:flex-row overflow-hidden">
-          {/* Sidebar */}
-          <aside className="w-full md:w-64 flex-shrink-0 bg-gray-100 p-4 border-b md:border-b-0 md:border-l border-gray-200">
-              <header className="flex justify-between items-center p-2 mb-6">
-                  <h2 className="text-lg font-bold text-gray-800">الإعدادات</h2>
-                  <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 md:hidden">
-                      <XMarkIcon className="w-6 h-6 text-gray-600" />
-                  </button>
-              </header>
-              <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
-                  <SideTab id="general" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Cog8ToothIcon className="w-5 h-5"/>} label="عام" />
-                  <SideTab id="services" activeTab={activeTab} setActiveTab={setActiveTab} icon={<CurrencyDollarIcon className="w-5 h-5"/>} label="الخدمات" />
-                  <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
-                  <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
-                  <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
-              </nav>
-          </aside>
+    <>
+      <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="bg-gradient-to-br from-gray-200 to-gray-100 p-1 rounded-3xl shadow-2xl w-full max-w-5xl h-full max-h-[720px]">
+          <div className="bg-white rounded-2xl w-full h-full flex flex-col md:flex-row overflow-hidden">
+            {/* Sidebar */}
+            <aside className="w-full md:w-64 flex-shrink-0 bg-gray-100 p-4 border-b md:border-b-0 md:border-l border-gray-200">
+                <header className="flex justify-between items-center p-2 mb-6">
+                    <h2 className="text-lg font-bold text-gray-800">الإعدادات</h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 md:hidden">
+                        <XMarkIcon className="w-6 h-6 text-gray-600" />
+                    </button>
+                </header>
+                <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
+                    <SideTab id="general" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Cog8ToothIcon className="w-5 h-5"/>} label="عام" />
+                    <SideTab id="services" activeTab={activeTab} setActiveTab={setActiveTab} icon={<CurrencyDollarIcon className="w-5 h-5"/>} label="الخدمات" />
+                    <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
+                    <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
+                    <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
+                    <SideTab id="data" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ArchiveBoxIcon className="w-5 h-5"/>} label="البيانات" />
+                </nav>
+            </aside>
 
-          {/* Main Content */}
-          <main className="flex-1 flex flex-col min-h-0">
-            <div className="flex-grow p-6 md:p-8 overflow-y-auto">
-              {renderTabContent()}
-            </div>
-            <footer className="p-4 border-t bg-gray-50/70 flex justify-between items-center">
-              <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 hidden md:block">
-                  <XMarkIcon className="w-6 h-6 text-gray-600" />
-              </button>
-              <div className="flex justify-end gap-3 w-full">
-                  <button type="button" onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
-                      إلغاء
-                  </button>
-                  <button onClick={handleSave} disabled={isSaving} className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2.5 px-6 rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2 shadow-sm">
-                    {isSaving && <SpinnerIcon className="w-5 h-5" />}
-                    {isSaving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
-                  </button>
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col min-h-0">
+              <div className="flex-grow p-6 md:p-8 overflow-y-auto">
+                {renderTabContent()}
               </div>
-            </footer>
-          </main>
+              <footer className="p-4 border-t bg-gray-50/70 flex justify-between items-center">
+                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 hidden md:block">
+                    <XMarkIcon className="w-6 h-6 text-gray-600" />
+                </button>
+                <div className="flex justify-end gap-3 w-full">
+                    <button type="button" onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
+                        إلغاء
+                    </button>
+                    <button onClick={handleSave} disabled={isSaving} className="bg-[var(--theme-color)] hover:opacity-90 text-white font-bold py-2.5 px-6 rounded-lg transition-colors disabled:bg-gray-400 flex items-center gap-2 shadow-sm">
+                      {isSaving && <SpinnerIcon className="w-5 h-5" />}
+                      {isSaving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+                    </button>
+                </div>
+              </footer>
+            </main>
+          </div>
         </div>
       </div>
-    </div>
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <header className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-800">تأكيد الأرشفة</h2>
+              <button onClick={() => setShowArchiveConfirm(false)} className="p-2 rounded-full hover:bg-gray-100">
+                <XMarkIcon className="w-6 h-6 text-gray-600" />
+              </button>
+            </header>
+            <div className="p-6 flex-grow">
+              <p className="text-gray-600 text-center leading-relaxed">
+                سيتم أرشفة جميع السجلات المكتملة والملغاة الأقدم من <strong>{localSettings.archiveOlderThanDays} يوم</strong> بشكل دائم.
+                <br/>
+                لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟
+              </p>
+            </div>
+            <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+              <button onClick={() => setShowArchiveConfirm(false)} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm">إلغاء</button>
+              <button onClick={handleArchive} className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-sm">
+                <ArchiveBoxIcon className="w-5 h-5" />
+                نعم، أرشفة
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+      {serviceToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <header className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-800">تأكيد الحذف</h2>
+              <button onClick={() => setServiceToDelete(null)} className="p-2 rounded-full hover:bg-gray-100">
+                <XMarkIcon className="w-6 h-6 text-gray-600" />
+              </button>
+            </header>
+            <div className="p-6 flex-grow">
+              <p className="text-gray-600 text-center leading-relaxed">
+                هل أنت متأكد من حذف هذه الخدمة؟
+                <br/>
+                <strong>لا يمكن التراجع عن هذا الإجراء.</strong>
+              </p>
+            </div>
+            <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+              <button onClick={() => setServiceToDelete(null)} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm">إلغاء</button>
+              <button onClick={handleConfirmRemoveService} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-sm">
+                <TrashIcon className="w-5 h-5" />
+                نعم، حذف
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -401,12 +503,12 @@ const ToggleSwitch: FC<ToggleSwitchProps> = ({ name, label, description, checked
 );
 
 const FormFieldPreview: FC<ToggleSwitchProps & { icon: React.ReactNode }> = ({ icon, name, label, checked, onChange }) => (
-    <div className="bg-white p-3 rounded-lg border border-gray-200/80 flex items-center justify-between">
+    <label htmlFor={name} className="bg-white p-3 rounded-lg border border-gray-200/80 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-3">
             {icon}
             <span className="font-semibold text-sm text-gray-700">{label}</span>
         </div>
-        <div className="relative inline-flex items-center cursor-pointer">
+        <div className="relative inline-flex items-center">
             <input
                 id={name}
                 name={name}
@@ -417,7 +519,7 @@ const FormFieldPreview: FC<ToggleSwitchProps & { icon: React.ReactNode }> = ({ i
             />
             <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[var(--theme-color)] peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] rtl:after:right-[2px] rtl:after:left-auto after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--theme-color)]"></div>
         </div>
-    </div>
+    </label>
 );
 
 interface SideTabProps {

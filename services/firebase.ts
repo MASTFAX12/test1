@@ -17,8 +17,8 @@ import {
 } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import { Role } from '../types.ts';
-import type { PatientVisit, PatientStatus, ClinicSettings, PatientProfile } from '../types.ts';
+import { Role, PatientStatus } from '../types.ts';
+import type { PatientVisit, PatientStatus as PatientStatusType, ClinicSettings, PatientProfile } from '../types.ts';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -110,7 +110,7 @@ export const addPatientVisit = async (patientData: {
     });
 };
 
-export const updatePatientStatus = async (id: string, status: PatientStatus) => {
+export const updatePatientStatus = async (id: string, status: PatientStatusType) => {
   if (!db) return;
   const patientRef = doc(db, 'queue', id);
   await updateDoc(patientRef, { status });
@@ -290,4 +290,75 @@ export const getPatientHistory = async (patientProfileId: string): Promise<Patie
     visits.sort((a, b) => b.visitDate.toMillis() - a.visitDate.toMillis());
 
     return visits;
+};
+
+export const archiveVisitsByIds = async (visitIds: string[]): Promise<number> => {
+    if (!db || visitIds.length === 0) return 0;
+    const queueCollectionRef = collection(db, 'queue');
+    const archiveCollectionRef = collection(db, 'visits_archive');
+    let totalArchived = 0;
+
+    // Firestore 'in' query supports up to 30 items per query
+    for (let i = 0; i < visitIds.length; i += 30) {
+        const chunkIds = visitIds.slice(i, i + 30);
+        if (chunkIds.length === 0) continue;
+        
+        const q = query(queueCollectionRef, where('__name__', 'in', chunkIds));
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) continue;
+
+        const batch = writeBatch(db);
+        snapshot.forEach(docSnapshot => {
+            const archiveDocRef = doc(archiveCollectionRef, docSnapshot.id);
+            batch.set(archiveDocRef, docSnapshot.data());
+            batch.delete(docSnapshot.ref);
+        });
+        await batch.commit();
+        totalArchived += snapshot.size;
+    }
+    return totalArchived;
+};
+
+export const archiveOldPatientVisits = async (olderThanDays: number): Promise<number> => {
+    if (!db || olderThanDays <= 0) return 0;
+    const queueCollectionRef = collection(db, 'queue');
+    const archiveCollectionRef = collection(db, 'visits_archive');
+
+    const thresholdDate = new Date();
+    thresholdDate.setDate(thresholdDate.getDate() - olderThanDays);
+    const thresholdTimestamp = Timestamp.fromDate(thresholdDate);
+
+    // Query for all old documents first to avoid a composite index, then filter client-side.
+    const q = query(
+        queueCollectionRef,
+        where('visitDate', '<=', thresholdTimestamp)
+    );
+
+    const snapshot = await getDocs(q);
+
+    // Filter client-side for the correct statuses.
+    const statusesToArchive = [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped];
+    const docsToArchive = snapshot.docs.filter(doc => statusesToArchive.includes(doc.data().status));
+
+    if (docsToArchive.length === 0) {
+        return 0;
+    }
+
+    let totalArchived = 0;
+    const BATCH_SIZE = 250; // Each doc is 2 operations (set+delete), staying under 500 ops limit
+
+    for (let i = 0; i < docsToArchive.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        const chunk = docsToArchive.slice(i, i + BATCH_SIZE);
+        chunk.forEach(docSnapshot => {
+            const archiveDocRef = doc(archiveCollectionRef, docSnapshot.id);
+            batch.set(archiveDocRef, docSnapshot.data());
+            batch.delete(docSnapshot.ref);
+        });
+        await batch.commit();
+        totalArchived += chunk.length;
+    }
+
+    return totalArchived;
 };

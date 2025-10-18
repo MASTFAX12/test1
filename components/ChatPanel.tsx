@@ -255,7 +255,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ role }) => {
                     {isArchiving ? <SpinnerIcon className="w-5 h-5 text-gray-600" /> : <ArchiveBoxIcon className="w-5 h-5 text-gray-600"/>}
                 </button>
             </header>
-            <div className="flex-grow p-4 overflow-y-auto bg-slate-50">
+            <div className="flex-grow p-4 overflow-y-auto overflow-x-hidden bg-slate-50">
                 {loading && <div className="flex items-center justify-center h-full"><SpinnerIcon className="w-8 h-8 text-gray-400"/></div>}
                 {error && <p className="text-center text-red-500 pt-10">حدث خطأ في تحميل الرسائل.</p>}
                 {!loading && messages.length === 0 && (

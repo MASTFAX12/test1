@@ -226,13 +226,14 @@ export const archiveAllChatMessages = async (): Promise<number> => {
   if (!db) return 0;
   const chatCollectionRef = collection(db, 'chat');
   const archiveCollectionRef = collection(db, 'chat_archive');
+  const BATCH_SIZE = 249; // Safely under Firestore's 500-operation limit (249 * 2 ops = 498)
 
   let totalArchived = 0;
 
   while (true) {
     const q = query(
       chatCollectionRef, 
-      limit(250)
+      limit(BATCH_SIZE)
     );
     
     const snapshot = await getDocs(q);
@@ -253,7 +254,7 @@ export const archiveAllChatMessages = async (): Promise<number> => {
     
     totalArchived += snapshot.size;
 
-    if (snapshot.size < 250) {
+    if (snapshot.size < BATCH_SIZE) {
         break;
     }
   }

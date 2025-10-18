@@ -1,41 +1,20 @@
-# نظام إدارة طابور العيادة
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-هذا المشروع عبارة عن لوحة إدارة للعيادة تم تطويرها باستخدام Vite و React و TypeScript. يتيح لك النظام إدارة قائمة المرضى المنتظرين وعرض المعلومات المهمة للمرضى والأطباء بشكل تفاعلي وسهل الاستخدام.
+# Run and deploy your AI Studio app
 
-## الميزات الرئيسية
+This contains everything you need to run your app locally.
 
-- **إدارة طابور المرضى:** إضافة مرضى جدد، تحديث حالتهم (منتظر، في الاستشارة، تم الانتهاء)، وحذفهم عند الحاجة.
-- **تنبيهات صوتية:** يصدر النظام تنبيهًا صوتياً عند إضافة أو استدعاء مراجع جديد.
-- **تخصيص إعدادات العيادة:** يمكن تعديل اسم العيادة، اسم الطبيب، التخصص، الرسالة الترحيبية، اللون الرئيسي، قائمة الخدمات وأسعارها عبر ملف `constants.ts`.
-- **إحصائيات وعدّاد:** يعرض عدد المرضى الحاليين والمرضى الذين تم خدمتهم.
-- **حقول إضافية:** دعم حقول اختيارية مثل العمر، رقم الهاتف، سبب الزيارة، والمبلغ المدفوع.
-- **نشر على GitHub Pages:** تم تهيئة المشروع للعمل على GitHub Pages ضمن المسار `/test1/`.
+View your app in AI Studio: https://ai.studio/apps/drive/1bChAF8bViVNYlKmQM_-kthuTvVcjxUcO
 
-## التشغيل المحلي
+## Run Locally
 
-لتشغيل التطبيق محلياً:
+**Prerequisites:**  Node.js
 
-1. تأكد من وجود [Node.js](https://nodejs.org/) على جهازك.
-2. ثبّت الحزم باستخدام:
-   ```bash
-   npm install
-   ```
-3. أنشئ ملف `.env.local` وضع فيه مفتاح Gemini API تحت المتغير `GEMINI_API_KEY` (إن كنت تستخدم واجهة Gemini).
-4. شغّل التطبيق:
-   ```bash
-   npm run dev
-   ```
 
-## النشر على GitHub Pages
-
-لإنشاء نسخة جاهزة للنشر عبر GitHub Pages:
-
-```bash
-npm run build
-```
-
-بعد ذلك، قم برفع محتويات مجلد `dist` إلى إعدادات GitHub Pages. تأكد من ضبط المسار الأساسي (`base`) في `vite.config.ts` إلى `/test1/` كما هو موضّح في المشروع.
-
-## المساهمة
-
-إن وجدت أي مشكلة أو لديك اقتراح لتحسين المشروع، يرجى فتح قضية (Issue) أو تقديم طلب سحب (Pull Request).
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

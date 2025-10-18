@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo, FC, DragEvent, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { PatientVisit, Service, CustomLineItem } from '../types.ts';
@@ -104,7 +101,7 @@ const PatientCard: FC<PatientCardProps> = ({
   const isWaiting = patient.status === PatientStatus.Waiting;
 
   const cardClasses = [
-    'bg-white rounded-xl p-4 shadow-sm border-l-4 transition-all duration-300 relative group',
+    'bg-white rounded-xl py-4 px-4 shadow-sm border-l-4 transition-all duration-300 relative group',
     isBeingCalled ? 'ring-2 ring-[var(--theme-color)] animate-pulse' : 'hover:shadow-lg hover:-translate-y-1',
     isDraggable ? 'cursor-grab' : '',
     isNextToPay ? 'ring-2 ring-yellow-400' : '',
@@ -123,21 +120,23 @@ const PatientCard: FC<PatientCardProps> = ({
       onDrop={(e) => onDropReorder?.(e, patient.id)}
       onDragLeave={onDragLeaveReorder}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
           {index !== undefined && <span className="flex-shrink-0 bg-gray-100 text-gray-600 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center border border-gray-200">{index + 1}</span>}
-          <div className="flex-grow">
-            <h3 className="font-bold text-gray-800 text-lg">{patient.name}</h3>
+          <div className="flex-grow min-w-0">
+            <h3 className="font-bold text-gray-800 text-lg truncate">{patient.name}</h3>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusText}</span>
-            {isNextToPay && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900 mt-1">التالي للدفع</span>}
-            {isNewlyAddedToPayment && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 mt-1 animate-pulse">جديد للدفع</span>}
+            <div className="flex items-center gap-1.5">
+              {isNextToPay && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900">التالي للدفع</span>}
+              {isNewlyAddedToPayment && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 animate-pulse">جديد</span>}
+            </div>
         </div>
       </div>
       
-      <div className="mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
+      <div className="mt-3 pt-3 border-t border-gray-200/80 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-600">
         <div className="flex items-center gap-1.5"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
         {patient.phone && <div className="flex items-center gap-1.5"><PhoneIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">الهاتف:</span> {patient.phone}</div>}
         <div className="flex items-center gap-1.5 col-span-2"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المبلغ المطلوب:</span> <span className="font-bold">{patient.requiredAmount?.toLocaleString() || 'غير محدد'}</span></div>
@@ -416,7 +415,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onShowHistory={() => setHistoryPatient(patient)}
         isBeingCalled={callingPatient?.id === patient.id}
         onMarkAsDone={handleMarkAsDone}
-        isDraggable={role === Role.Secretary && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status)}
+        isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Cancelled].includes(patient.status)}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDropReorder={handleReorderDrop}

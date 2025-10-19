@@ -142,6 +142,11 @@ export interface ClinicSettings {
   callDuration: number;
   archiveOlderThanDays: number;
   publicTheme: string;
+  // Workflow controls
+  autoInProgressOnCall: boolean;
+  autoDoneOnPayment: boolean;
+  // Advanced controls
+  enableAutoArchiving: boolean;
 }
 
 export interface ChatMessage {

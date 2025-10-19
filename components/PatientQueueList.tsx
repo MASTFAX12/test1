@@ -1,6 +1,6 @@
 import React, { useState, useMemo, FC, DragEvent, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
-import type { PatientVisit, Service, CustomLineItem } from '../types.ts';
+import type { PatientVisit, Service, CustomLineItem, ClinicSettings } from '../types.ts';
 import { PatientStatus, Role } from '../types.ts';
 import {
   BellIcon,
@@ -17,6 +17,7 @@ import {
   UserIcon,
   SpinnerIcon,
   ClipboardDocumentListIcon,
+  ConfirmationDialog,
 } from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
 import ServiceSelectionModal from './ServiceSelectionModal.tsx';
@@ -184,6 +185,7 @@ const ClinicalNotesModal: FC<{
 interface PatientQueueListProps {
   patients: PatientVisit[];
   role: Role;
+  settings: ClinicSettings;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
   onCancel: (id: string) => void;
   onDeletePatient: (id: string) => void;
@@ -457,6 +459,7 @@ const StatusFilter: FC<{
 const PatientQueueList: FC<PatientQueueListProps> = ({
   patients,
   role,
+  settings,
   onUpdateStatus,
   onCancel,
   onDeletePatient,
@@ -473,6 +476,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
   const [notesPatient, setNotesPatient] = useState<PatientVisit | null>(null);
   const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
+  const [patientToMarkAsDone, setPatientToMarkAsDone] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatus | 'all'>('all');
   const [draggedPatient, setDraggedPatient] = useState<PatientVisit | null>(null);
@@ -561,12 +565,13 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   
   const handlePaymentSave = async (patientId: string, amountPaid: number) => {
     try {
-        await updatePatientDetails(patientId, { 
-            amountPaid,
-            status: PatientStatus.Done
-        });
+        const detailsToUpdate: Partial<Omit<PatientVisit, 'id'>> = { amountPaid };
+        if (settings.autoDoneOnPayment) {
+          detailsToUpdate.status = PatientStatus.Done;
+        }
+        await updatePatientDetails(patientId, detailsToUpdate);
         setPaymentPatient(null);
-        toast.success('تم تسجيل الدفعة بنجاح.');
+        toast.success(settings.autoDoneOnPayment ? 'تم تسجيل الدفعة ونقل المراجع للأرشيف.' : 'تم تسجيل الدفعة بنجاح.');
     } catch (error) {
         toast.error('فشل تسجيل الدفعة.');
         console.error("Payment save failed:", error);
@@ -615,21 +620,26 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   };
 
   const handleMarkAsDone = (patient: PatientVisit) => {
-    if (window.confirm(`هل أنت متأكد من إنهاء مراجعة "${patient.name}" بدون رسوم؟`)) {
-      const toastId = toast.loading('جاري إنهاء المراجعة...');
-      // Using updatePatientDetails to clear financial fields and set status in one go.
-      updatePatientDetails(patient.id, {
+    setPatientToMarkAsDone(patient);
+  };
+
+  const handleConfirmMarkAsDone = async () => {
+    if (!patientToMarkAsDone) return;
+    const toastId = toast.loading('جاري إنهاء المراجعة...');
+    try {
+      await updatePatientDetails(patientToMarkAsDone.id, {
         status: PatientStatus.Done,
         requiredAmount: 0,
         amountPaid: 0,
         servicesRendered: [],
         customLineItems: []
-      }).then(() => {
-        toast.success('تم إنهاء المراجعة.', { id: toastId });
-      }).catch(error => {
-        toast.error('فشل إنهاء المراجعة.', { id: toastId });
-        console.error("Error marking patient as done:", error);
       });
+      toast.success('تم إنهاء المراجعة.', { id: toastId });
+    } catch (error) {
+      toast.error('فشل إنهاء المراجعة.', { id: toastId });
+      console.error("Error marking patient as done:", error);
+    } finally {
+      setPatientToMarkAsDone(null);
     }
   };
 
@@ -828,6 +838,18 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
             onCancel(patientToAction.id);
             setPatientToAction(null);
           }}
+        />
+      )}
+      {patientToMarkAsDone && (
+        <ConfirmationDialog
+          isOpen={!!patientToMarkAsDone}
+          onClose={() => setPatientToMarkAsDone(null)}
+          onConfirm={handleConfirmMarkAsDone}
+          title="تأكيد الإنهاء بدون رسوم"
+          message={`هل أنت متأكد من إنهاء مراجعة "${patientToMarkAsDone.name}" بدون تحديد أي رسوم؟ سيتم نقل المراجع إلى الأرشيف مباشرة.`}
+          confirmButtonText="نعم، إنهاء المراجعة"
+          confirmButtonColor="bg-green-600 hover:bg-green-700"
+          icon={<CheckIcon className="w-5 h-5" />}
         />
       )}
       {showArchiveConfirm && (

@@ -1,6 +1,4 @@
-
-
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ReactNode, ErrorInfo } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -12,27 +10,29 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
+  // FIX: Switched to class property syntax for state initialization and an arrow function for the handler.
+  // This is a more modern and common pattern for React class components that avoids manual binding
+  // in the constructor and can resolve issues with 'this' context and property existence that might
+  // occur with some tooling configurations.
+  state: State = {
     hasError: false,
     error: null,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): State {
     // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  // FIX: Removed 'public' access modifier. While valid TypeScript, it's not standard for React lifecycle methods and can cause issues with some tooling.
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // You can also log the error to an error reporting service
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  private handleReload = () => {
+  handleReload = () => {
     window.location.reload();
   };
 
-  // FIX: Removed 'public' access modifier to align with standard React class component syntax. This resolves the type error on `this.props`.
   render() {
     if (this.state.hasError) {
       // You can render any custom fallback UI

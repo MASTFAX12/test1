@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Timestamp } from 'firebase/firestore';
@@ -7,14 +5,14 @@ import { useQueue } from './hooks/useQueue.ts';
 import { useSettings } from './hooks/useSettings.ts';
 import { usePrevious } from './hooks/usePrevious.ts';
 import { Role, PatientStatus } from './types.ts';
-import type { PatientVisit, Service, CustomLineItem } from './types.ts';
+import type { PatientVisit, Service, CustomLineItem, ClinicSettings } from './types.ts';
 import { 
   updatePatientStatus, 
   cancelPatient, 
   deletePatientVisit,
   updatePatientDetails, 
-  updateClinicSettings, 
-  reorderPatientQueue
+  reorderPatientQueue,
+  archiveOldPatientVisits,
 } from './services/firebase.ts';
 import { playNotificationSound } from './utils/audio.ts';
 import { getThemeById } from './types.ts';
@@ -76,6 +74,32 @@ function App() {
     }
   }, [patients, prevPatients, role, settings.callSoundEnabled]);
 
+  // Effect for automatic daily archiving
+  useEffect(() => {
+    if (role === Role.Doctor && settings.enableAutoArchiving) {
+      const now = new Date().getTime();
+      const lastArchiveStr = localStorage.getItem('lastAutoArchiveTimestamp');
+      const lastArchive = lastArchiveStr ? parseInt(lastArchiveStr, 10) : 0;
+      const oneDay = 24 * 60 * 60 * 1000;
+
+      if (now - lastArchive > oneDay) {
+        console.log("Running automatic daily archive...");
+        toast.promise(
+          archiveOldPatientVisits(settings.archiveOlderThanDays).then(count => {
+            localStorage.setItem('lastAutoArchiveTimestamp', now.toString());
+            return count;
+          }),
+          {
+            loading: 'جاري تشغيل الأرشفة التلقائية...',
+            success: (count) => count > 0 ? `تمت أرشفة ${count} سجل قديم تلقائياً.` : 'لا توجد سجلات قديمة للأرشفة التلقائية.',
+            error: 'فشلت عملية الأرشفة التلقائية.',
+          },
+          { position: 'bottom-left' }
+        );
+      }
+    }
+  }, [role, settings.enableAutoArchiving, settings.archiveOlderThanDays]);
+
   const handleLoginSuccess = (loggedInRole: Role) => {
     setLoggedInUserRole(loggedInRole);
     setRole(loggedInRole);
@@ -87,32 +111,7 @@ function App() {
     setRole(Role.Public);
   };
 
-  const handleCallPatient = useCallback((patient: PatientVisit) => {
-    if (settings.callSoundEnabled) {
-      playNotificationSound();
-    }
-    setCallingPatient(patient);
-    setNotifiedPatient(patient);
-
-    if (callTimeoutId) clearTimeout(callTimeoutId);
-
-    const duration = (settings.callDuration || 10) * 1000;
-    const newTimeoutId = setTimeout(() => {
-      setCallingPatient(null);
-    }, duration);
-    setCallTimeoutId(newTimeoutId);
-  }, [settings.callSoundEnabled, settings.callDuration, callTimeoutId]);
-  
-  const handleStopCall = useCallback(() => {
-    if (callTimeoutId) {
-        clearTimeout(callTimeoutId);
-    }
-    setCallingPatient(null);
-    setNotifiedPatient(null);
-    setCallTimeoutId(null);
-  }, [callTimeoutId]);
-
-  const handleUpdateStatus = async (id: string, status: PatientStatus) => {
+  const handleUpdateStatus = useCallback(async (id: string, status: PatientStatus) => {
     try {
       const patientToUpdate = patients.find(p => p.id === id);
       const isReturningFromArchive = patientToUpdate && 
@@ -129,7 +128,36 @@ function App() {
       toast.error('فشل تحديث الحالة.');
       console.error(error);
     }
-  };
+  }, [patients]);
+
+  const handleCallPatient = useCallback((patient: PatientVisit) => {
+    if (settings.autoInProgressOnCall) {
+      handleUpdateStatus(patient.id, PatientStatus.InProgress);
+    }
+
+    if (settings.callSoundEnabled) {
+      playNotificationSound();
+    }
+    setCallingPatient(patient);
+    setNotifiedPatient(patient);
+
+    if (callTimeoutId) clearTimeout(callTimeoutId);
+
+    const duration = (settings.callDuration || 10) * 1000;
+    const newTimeoutId = window.setTimeout(() => {
+      setCallingPatient(null);
+    }, duration);
+    setCallTimeoutId(newTimeoutId);
+  }, [settings.callSoundEnabled, settings.callDuration, callTimeoutId, settings.autoInProgressOnCall, handleUpdateStatus]);
+  
+  const handleStopCall = useCallback(() => {
+    if (callTimeoutId) {
+        clearTimeout(callTimeoutId);
+    }
+    setCallingPatient(null);
+    setNotifiedPatient(null);
+    setCallTimeoutId(null);
+  }, [callTimeoutId]);
 
   const handleCancel = async (id: string) => {
     // Confirmation is now handled by ConfirmationModal

@@ -22,4 +22,7 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   callDuration: 10, // seconds for the call notification to be visible
   archiveOlderThanDays: 90,
   publicTheme: 'deep-ocean',
+  autoInProgressOnCall: false,
+  autoDoneOnPayment: true,
+  enableAutoArchiving: false,
 };

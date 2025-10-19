@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import type { PatientVisit, Service, CustomLineItem, ClinicSettings } from '../types.ts';
 import { Role, PatientStatus } from '../types.ts';
@@ -55,6 +53,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             callingPatient={props.callingPatient}
             availableServices={props.settings.services || []}
             onSetPatientServices={props.onSetPatientServices}
+            settings={props.settings}
           />
         );
     }

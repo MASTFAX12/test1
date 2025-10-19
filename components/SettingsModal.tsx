@@ -23,9 +23,14 @@ import {
   PhoneIcon,
   PencilIcon as PencilSquareIcon,
   ArchiveBoxIcon,
+  ArrowPathIcon,
+  WrenchScrewdriverIcon,
+  ExclamationTriangleIcon,
+  ConfirmationDialog,
 } from './Icons.tsx';
-import { updateClinicSettings, archiveOldPatientVisits } from '../services/firebase.ts';
+import { updateClinicSettings, archiveOldPatientVisits, archiveAllChatMessages, clearActiveQueue } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
+import { DEFAULT_SETTINGS } from '../constants.ts';
 
 interface SettingsModalProps {
   settings: ClinicSettings;
@@ -90,6 +95,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showClearQueueConfirm, setShowClearQueueConfirm] = useState(false);
+  const [isClearingQueue, setIsClearingQueue] = useState(false);
+  const [showArchiveChatConfirm, setShowArchiveChatConfirm] = useState(false);
+  const [isArchivingChat, setIsArchivingChat] = useState(false);
 
 
   useEffect(() => {
@@ -159,6 +169,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
         console.error(error);
     } finally {
         setIsArchiving(false);
+    }
+  };
+  
+  const handleResetToDefaults = () => {
+    setLocalSettings(DEFAULT_SETTINGS);
+    setShowResetConfirm(false);
+    toast.info('تم استعادة الإعدادات الافتراضية. اضغط "حفظ" لتأكيد التغييرات.');
+  };
+  
+  const handleClearQueue = async () => {
+    setShowClearQueueConfirm(false);
+    setIsClearingQueue(true);
+    const toastId = toast.loading("جاري تنظيف الطابور...");
+    try {
+        const count = await clearActiveQueue();
+        toast.success(count > 0 ? `تم إلغاء ${count} مراجع.` : `الطابور النشط فارغ بالفعل.`, { id: toastId });
+    } catch(e) {
+        toast.error("فشلت عملية تنظيف الطابور.", { id: toastId });
+        console.error(e);
+    } finally {
+        setIsClearingQueue(false);
+    }
+  };
+  
+  const handleArchiveChat = async () => {
+    setShowArchiveChatConfirm(false);
+    setIsArchivingChat(true);
+    const toastId = toast.loading("جاري أرشفة الدردشة...");
+    try {
+        const count = await archiveAllChatMessages();
+        toast.success(count > 0 ? `تمت أرشفة ${count} رسالة.` : 'لا توجد رسائل للأرشفة.', { id: toastId });
+    } catch(e) {
+        toast.error("فشلت عملية أرشفة الدردشة.", { id: toastId });
+        console.error(e);
+    } finally {
+        setIsArchivingChat(false);
     }
   };
   
@@ -250,6 +296,26 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 </div>
             </Section>
           )}
+          {activeTab === 'workflow' && (
+            <Section title="أتمتة سير العمل" description="تحسين كفاءة العيادة عبر أتمتة الإجراءات المتكررة.">
+              <div className="space-y-4">
+                <ToggleSwitch
+                  name="autoInProgressOnCall"
+                  label="نقل تلقائي إلى 'قيد المعالجة' عند النداء"
+                  checked={localSettings.autoInProgressOnCall}
+                  onChange={handleChange}
+                  description="عند الضغط على زر النداء، يتم تغيير حالة المراجع مباشرة إلى 'قيد المعالجة'."
+                />
+                 <ToggleSwitch
+                  name="autoDoneOnPayment"
+                  label="نقل تلقائي إلى 'مكتمل' بعد الدفع"
+                  checked={localSettings.autoDoneOnPayment}
+                  onChange={handleChange}
+                  description="عند تسجيل دفعة لمراجع، يتم تغيير حالته مباشرة إلى 'مكتمل' وإرساله للأرشيف."
+                />
+              </div>
+            </Section>
+          )}
           {activeTab === 'security' && (
             <Section title="الأمان وكلمات المرور" description="تغيير كلمات المرور الافتراضية لزيادة أمان النظام.">
                 <div className="space-y-6">
@@ -301,6 +367,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 </div>
             </Section>
            )}
+           {activeTab === 'advanced' && (
+              <>
+                <Section title="الصيانة التلقائية" description="تفعيل المهام التلقائية للحفاظ على أداء النظام.">
+                   <ToggleSwitch
+                      name="enableAutoArchiving"
+                      label="تفعيل الأرشفة التلقائية اليومية"
+                      checked={localSettings.enableAutoArchiving}
+                      onChange={handleChange}
+                      description={`يقوم النظام تلقائياً بأرشفة السجلات القديمة (الأقدم من ${localSettings.archiveOlderThanDays} يوم) مرة كل 24 ساعة.`}
+                    />
+                </Section>
+                <div className="p-4 rounded-xl border-2 border-red-300 bg-red-50">
+                    <div className="flex items-center gap-3 mb-2">
+                        <ExclamationTriangleIcon className="w-6 h-6 text-red-500"/>
+                        <h4 className="text-lg font-bold text-red-800">منطقة الخطر</h4>
+                    </div>
+                    <p className="text-sm text-red-700 mb-4">الإجراءات التالية لا يمكن التراجع عنها. الرجاء المتابعة بحذر.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                       <DangerButton label="أرشفة كل الدردشة" onClick={() => setShowArchiveChatConfirm(true)} disabled={isArchivingChat} />
+                       <DangerButton label="تنظيف الطابور الحالي" onClick={() => setShowClearQueueConfirm(true)} disabled={isClearingQueue} />
+                       <DangerButton label="إعادة ضبط الإعدادات" onClick={() => setShowResetConfirm(true)} />
+                    </div>
+                </div>
+              </>
+           )}
         </div>
       );
   }
@@ -323,8 +414,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                     <SideTab id="services" activeTab={activeTab} setActiveTab={setActiveTab} icon={<CurrencyDollarIcon className="w-5 h-5"/>} label="الخدمات" />
                     <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
                     <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
+                    <SideTab id="workflow" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ArrowPathIcon className="w-5 h-5"/>} label="سير العمل" />
                     <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
                     <SideTab id="data" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ArchiveBoxIcon className="w-5 h-5"/>} label="البيانات" />
+                    <SideTab id="advanced" activeTab={activeTab} setActiveTab={setActiveTab} icon={<WrenchScrewdriverIcon className="w-5 h-5"/>} label="متقدم" />
                 </nav>
             </aside>
 
@@ -334,10 +427,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 {renderTabContent()}
               </div>
               <footer className="p-4 border-t bg-gray-50/70 flex justify-between items-center">
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 hidden md:block">
-                    <XMarkIcon className="w-6 h-6 text-gray-600" />
-                </button>
-                <div className="flex justify-end gap-3 w-full">
+                <div className="flex items-center gap-3">
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 hidden md:block">
+                        <XMarkIcon className="w-6 h-6 text-gray-600" />
+                    </button>
+                </div>
+                <div className="flex justify-end gap-3">
                     <button type="button" onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg transition-colors shadow-sm">
                         إلغاء
                     </button>
@@ -351,58 +446,56 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
           </div>
         </div>
       </div>
-      {showArchiveConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
-            <header className="flex justify-between items-center p-4 border-b">
-              <h2 className="text-xl font-bold text-gray-800">تأكيد الأرشفة</h2>
-              <button onClick={() => setShowArchiveConfirm(false)} className="p-2 rounded-full hover:bg-gray-100">
-                <XMarkIcon className="w-6 h-6 text-gray-600" />
-              </button>
-            </header>
-            <div className="p-6 flex-grow">
-              <p className="text-gray-600 text-center leading-relaxed">
-                سيتم أرشفة جميع السجلات المكتملة والملغاة الأقدم من <strong>{localSettings.archiveOlderThanDays} يوم</strong> بشكل دائم.
-                <br/>
-                لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟
-              </p>
-            </div>
-            <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
-              <button onClick={() => setShowArchiveConfirm(false)} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm">إلغاء</button>
-              <button onClick={handleArchive} className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-sm">
-                <ArchiveBoxIcon className="w-5 h-5" />
-                نعم، أرشفة
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
-      {serviceToDelete && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
-            <header className="flex justify-between items-center p-4 border-b">
-              <h2 className="text-xl font-bold text-gray-800">تأكيد الحذف</h2>
-              <button onClick={() => setServiceToDelete(null)} className="p-2 rounded-full hover:bg-gray-100">
-                <XMarkIcon className="w-6 h-6 text-gray-600" />
-              </button>
-            </header>
-            <div className="p-6 flex-grow">
-              <p className="text-gray-600 text-center leading-relaxed">
-                هل أنت متأكد من حذف هذه الخدمة؟
-                <br/>
-                <strong>لا يمكن التراجع عن هذا الإجراء.</strong>
-              </p>
-            </div>
-            <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
-              <button onClick={() => setServiceToDelete(null)} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm">إلغاء</button>
-              <button onClick={handleConfirmRemoveService} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-sm">
-                <TrashIcon className="w-5 h-5" />
-                نعم، حذف
-              </button>
-            </footer>
-          </div>
-        </div>
-      )}
+      <ConfirmationDialog
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleResetToDefaults}
+        title="إعادة ضبط الإعدادات"
+        message="هل أنت متأكد من رغبتك في استعادة جميع الإعدادات إلى الوضع الافتراضي؟ لن يتم حفظ هذا الإجراء حتى تضغط على 'حفظ الإعدادات'."
+        confirmButtonText="نعم، إعادة الضبط"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
+        icon={<ArrowPathIcon className="w-5 h-5" />}
+      />
+      <ConfirmationDialog
+        isOpen={showClearQueueConfirm}
+        onClose={() => setShowClearQueueConfirm(false)}
+        onConfirm={handleClearQueue}
+        title="تنظيف الطابور الحالي"
+        message="سيؤدي هذا إلى إلغاء جميع المراجعين في قوائم 'الانتظار' و 'قيد المعالجة' و 'بانتظار الدفع'. لا يمكن التراجع عن هذا الإجراء."
+        confirmButtonText="نعم، تنظيف الطابور"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
+        icon={<TrashIcon className="w-5 h-5" />}
+      />
+      <ConfirmationDialog
+        isOpen={showArchiveChatConfirm}
+        onClose={() => setShowArchiveChatConfirm(false)}
+        onConfirm={handleArchiveChat}
+        title="أرشفة جميع الرسائل"
+        message="سيؤدي هذا إلى نقل جميع الرسائل في الدردشة الحالية إلى الأرشيف بشكل دائم. لا يمكن التراجع عن هذا الإجراء."
+        confirmButtonText="نعم، أرشفة الكل"
+        confirmButtonColor="bg-yellow-500 hover:bg-yellow-600"
+        icon={<ArchiveBoxIcon className="w-5 h-5" />}
+      />
+       <ConfirmationDialog
+        isOpen={showArchiveConfirm}
+        onClose={() => setShowArchiveConfirm(false)}
+        onConfirm={handleArchive}
+        title="تأكيد الأرشفة اليدوية"
+        message={`سيتم أرشفة جميع السجلات المكتملة والملغاة الأقدم من ${localSettings.archiveOlderThanDays} يوم بشكل دائم. لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟`}
+        confirmButtonText="نعم، أرشفة"
+        confirmButtonColor="bg-yellow-500 hover:bg-yellow-600"
+        icon={<ArchiveBoxIcon className="w-5 h-5" />}
+      />
+      <ConfirmationDialog
+        isOpen={!!serviceToDelete}
+        onClose={() => setServiceToDelete(null)}
+        onConfirm={handleConfirmRemoveService}
+        title="تأكيد الحذف"
+        message="هل أنت متأكد من حذف هذه الخدمة؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmButtonText="نعم، حذف"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
+        icon={<TrashIcon className="w-5 h-5" />}
+      />
     </>
   );
 };
@@ -540,6 +633,17 @@ const SideTab: FC<SideTabProps> = ({ id, activeTab, setActiveTab, icon, label })
     >
         {icon}
         <span>{label}</span>
+    </button>
+);
+
+const DangerButton: FC<{ label: string; onClick: () => void; disabled?: boolean; }> = ({ label, onClick, disabled }) => (
+    <button 
+        type="button" 
+        onClick={onClick}
+        disabled={disabled}
+        className="w-full text-center text-sm font-bold text-red-700 bg-red-100/70 hover:bg-red-200/70 p-3 rounded-lg transition-colors border border-red-200/80 disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+        {label}
     </button>
 );
 

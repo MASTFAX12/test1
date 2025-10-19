@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { FC } from 'react';
 
 // Props for all icons
 interface IconProps extends React.SVGProps<SVGSVGElement> {}
@@ -221,3 +221,64 @@ export const CakeIcon: React.FC<IconProps> = (props) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M16 9.75a.75.75 0 01.75-.75h.01a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75h-.01a.75.75 0 01-.75-.75v-1.5z" />
     </svg>
 );
+
+export const ChevronLeftIcon: React.FC<IconProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+  </svg>
+);
+
+export const ChevronRightIcon: React.FC<IconProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+  </svg>
+);
+
+export const WrenchScrewdriverIcon: React.FC<IconProps> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.83-5.83M11.42 15.17l-4.242-4.242a2.652 2.652 0 010-3.75l4.242-4.242L11.42 15.17zm0 0L21 21m-8.58-8.58l-4.242 4.242M8.25 10.875L4.5 14.625l-1.5-1.5L6.75 9.375l1.5-1.5z" />
+    </svg>
+);
+
+export const ExclamationTriangleIcon: React.FC<IconProps> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+);
+
+// Generic Confirmation Dialog component
+export interface ConfirmationDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmButtonText: string;
+  confirmButtonColor: string;
+  icon: React.ReactNode;
+}
+export const ConfirmationDialog: FC<ConfirmationDialogProps> = ({ isOpen, onClose, onConfirm, title, message, confirmButtonText, confirmButtonColor, icon }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+            <header className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+                <XMarkIcon className="w-6 h-6 text-gray-600" />
+              </button>
+            </header>
+            <div className="p-6 flex-grow">
+              <p className="text-gray-600 text-center leading-relaxed">{message}</p>
+            </div>
+            <footer className="p-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+              <button onClick={onClose} className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-800 font-bold py-2.5 px-6 rounded-lg shadow-sm">إلغاء</button>
+              <button onClick={onConfirm} className={`${confirmButtonColor} text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-sm`}>
+                {icon}
+                {confirmButtonText}
+              </button>
+            </footer>
+          </div>
+        </div>
+    );
+};

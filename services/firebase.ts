@@ -348,3 +348,24 @@ export const archiveOldPatientVisits = async (olderThanDays: number): Promise<nu
 
     return totalArchived;
 };
+
+export const clearActiveQueue = async (): Promise<number> => {
+  if (!db) return 0;
+  const queueCollectionRef = collection(db, 'queue');
+  const statusesToClear = [PatientStatus.Waiting, PatientStatus.InProgress, PatientStatus.PendingPayment];
+
+  const q = query(queueCollectionRef, where('status', 'in', statusesToClear));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return 0;
+  }
+
+  const batch = writeBatch(db);
+  snapshot.forEach(docSnapshot => {
+    batch.update(docSnapshot.ref, { status: PatientStatus.Cancelled });
+  });
+
+  await batch.commit();
+  return snapshot.size;
+};

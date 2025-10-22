@@ -31,13 +31,37 @@ const PatientArchivePanel: FC<PatientArchivePanelProps> = ({ patientProfiles, al
     }, [allVisits]);
 
     const filteredProfiles = useMemo(() => {
-        if (!searchTerm) return patientProfiles;
-        const lowercasedFilter = searchTerm.toLowerCase();
-        return patientProfiles.filter(p => 
-            p.name.toLowerCase().includes(lowercasedFilter) || 
-            (p.phone && p.phone.includes(lowercasedFilter))
-        );
-    }, [patientProfiles, searchTerm]);
+        const trimmedSearchTerm = searchTerm.trim();
+        if (!trimmedSearchTerm) return patientProfiles;
+
+        const lowercasedSearchTerm = trimmedSearchTerm.toLowerCase();
+        
+        // Check if the search term consists only of digits
+        const isNumericSearch = /^\d+$/.test(trimmedSearchTerm);
+        const searchNumber = isNumericSearch ? parseInt(trimmedSearchTerm, 10) : NaN;
+
+        return patientProfiles.filter(profile => {
+            // 1. Check for name match (always)
+            if (profile.name.toLowerCase().includes(lowercasedSearchTerm)) {
+                return true;
+            }
+
+            // 2. Check for phone number match (always)
+            if (profile.phone && profile.phone.includes(trimmedSearchTerm)) {
+                return true;
+            }
+
+            // 3. If the search term is purely numeric, also check for visit count match
+            if (isNumericSearch) {
+                const visitCount = visitCounts.get(profile.id) || 0;
+                if (visitCount === searchNumber) {
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+    }, [patientProfiles, searchTerm, visitCounts]);
 
     const handleDelete = async () => {
         if (!deletingProfile) return;
@@ -64,7 +88,7 @@ const PatientArchivePanel: FC<PatientArchivePanelProps> = ({ patientProfiles, al
                     <MagnifyingGlassIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                     <input
                         type="text"
-                        placeholder="ابحث بالاسم أو رقم الهاتف..."
+                        placeholder="ابحث بالاسم، الهاتف، أو عدد الزيارات..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="form-input !pr-12 w-full"

@@ -24,6 +24,7 @@ import {
   WrenchScrewdriverIcon,
   ExclamationTriangleIcon,
   ConfirmationDialog,
+  CurrencyDollarIcon,
 } from './Icons.tsx';
 import { updateClinicSettings, archiveAllChatMessages, clearActiveQueue } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
@@ -120,7 +121,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
   
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
-      setLocalSettings(prev => ({ ...prev, [name]: value === '' ? 0 : parseInt(value, 10) }));
+      const parsedValue = parseInt(value, 10);
+      setLocalSettings(prev => ({ ...prev, [name]: isNaN(parsedValue) ? 0 : parsedValue }));
   }
 
   const handleSave = async () => {
@@ -245,38 +247,69 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                   onChange={handleChange}
                   description="عند الضغط على زر النداء، يتم تغيير حالة المراجع مباشرة إلى 'قيد المعالجة'."
                 />
+                 <ToggleSwitch
+                  name="requirePaymentBeforeInProgress"
+                  label="اشتراط الدفع قبل الدخول للطبيب"
+                  checked={localSettings.requirePaymentBeforeInProgress}
+                  onChange={handleChange}
+                  description="يمنع نقل المراجع إلى 'قيد المعالجة' ما لم يتم تسجيل دفعة له أولاً."
+                />
+                 <ToggleSwitch
+                  name="autoCallNextOnDone"
+                  label="نداء تلقائي للمراجع التالي عند الانتهاء"
+                  checked={localSettings.autoCallNextOnDone}
+                  onChange={handleChange}
+                  description="عندما يقوم الطبيب بإنهاء زيارة، يتم النداء على المراجع التالي في الانتظار تلقائياً."
+                />
+                <ToggleSwitch
+                  name="autoDoneAfterInProgress"
+                  label="نقل تلقائي إلى 'مكتمل' بعد فترة"
+                  checked={localSettings.autoDoneAfterInProgress}
+                  onChange={handleChange}
+                  description="نقل المراجع من 'قيد المعالجة' إلى 'مكتمل' تلقائياً بعد مرور فترة زمنية محددة."
+                />
+                {localSettings.autoDoneAfterInProgress && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg ml-8 animate-fade-in">
+                    <Input 
+                      icon={<ClockIcon className="w-5 h-5"/>} 
+                      name="autoDoneTimeout" 
+                      label="المهلة الزمنية (بالدقائق)" 
+                      type="number" 
+                      value={localSettings.autoDoneTimeout?.toString() || '30'} 
+                      onChange={handleNumberChange} 
+                    />
+                  </div>
+                )}
               </div>
             </Section>
           )}
           {activeTab === 'security' && (
-            <Section title="الأمان وكلمات المرور" description="تغيير كلمات المرور الافتراضية لزيادة أمان النظام.">
-                <div className="space-y-6">
-                    <PasswordInput 
-                        icon={<LockClosedIcon className="w-5 h-5"/>}
-                        name="doctorPassword" 
-                        label="كلمة مرور الطبيب" 
-                        value={localSettings.doctorPassword || ''}
-                        onChange={handleChange}
-                        showPassword={showDoctorPass}
-                        toggleShowPassword={() => setShowDoctorPass(p => !p)}
-                        helperText="اترك الحقل فارغاً لاستخدام كلمة المرور الافتراضية (doctor123)."
-                    />
-                     <PasswordInput 
-                        icon={<LockClosedIcon className="w-5 h-5"/>}
-                        name="secretaryPassword" 
-                        label="كلمة مرور السكرتير" 
-                        value={localSettings.secretaryPassword || ''}
-                        onChange={handleChange}
-                        showPassword={showSecretaryPass}
-                        toggleShowPassword={() => setShowSecretaryPass(p => !p)}
-                        helperText="اترك الحقل فارغاً لاستخدام كلمة المرور الافتراضية (sec123)."
-                    />
-                </div>
-            </Section>
-          )}
-           {activeTab === 'advanced' && (
-              <>
-                <div className="p-4 rounded-xl border-2 border-red-300 bg-red-50">
+             <>
+                <Section title="الأمان وكلمات المرور" description="تغيير كلمات المرور الافتراضية لزيادة أمان النظام.">
+                    <div className="space-y-6">
+                        <PasswordInput 
+                            icon={<LockClosedIcon className="w-5 h-5"/>}
+                            name="doctorPassword" 
+                            label="كلمة مرور الطبيب" 
+                            value={localSettings.doctorPassword || ''}
+                            onChange={handleChange}
+                            showPassword={showDoctorPass}
+                            toggleShowPassword={() => setShowDoctorPass(p => !p)}
+                            helperText="اترك الحقل فارغاً لاستخدام كلمة المرور الافتراضية (doctor123)."
+                        />
+                         <PasswordInput 
+                            icon={<LockClosedIcon className="w-5 h-5"/>}
+                            name="secretaryPassword" 
+                            label="كلمة مرور السكرتير" 
+                            value={localSettings.secretaryPassword || ''}
+                            onChange={handleChange}
+                            showPassword={showSecretaryPass}
+                            toggleShowPassword={() => setShowSecretaryPass(p => !p)}
+                            helperText="اترك الحقل فارغاً لاستخدام كلمة المرور الافتراضية (sec123)."
+                        />
+                    </div>
+                </Section>
+                 <div className="p-4 rounded-xl border-2 border-red-300 bg-red-50">
                     <div className="flex items-center gap-3 mb-2">
                         <ExclamationTriangleIcon className="w-6 h-6 text-red-500"/>
                         <h4 className="text-lg font-bold text-red-800">منطقة الخطر</h4>
@@ -289,7 +322,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                     </div>
                 </div>
               </>
-           )}
+          )}
         </div>
       );
   }
@@ -311,9 +344,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                     <SideTab id="general" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Cog8ToothIcon className="w-5 h-5"/>} label="عام" />
                     <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
                     <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
-                    <SideTab id="workflow" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ArrowPathIcon className="w-5 h-5"/>} label="سير العمل" />
-                    <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
-                    <SideTab id="advanced" activeTab={activeTab} setActiveTab={setActiveTab} icon={<WrenchScrewdriverIcon className="w-5 h-5"/>} label="متقدم" />
+                    <SideTab id="workflow" activeTab={activeTab} setActiveTab={setActiveTab} icon={<SparklesIcon className="w-5 h-5"/>} label="سير العمل" />
+                    <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان والإجراءات" />
                 </nav>
             </aside>
 

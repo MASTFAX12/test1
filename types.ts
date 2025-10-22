@@ -137,6 +137,10 @@ export interface ClinicSettings {
   publicTheme: string;
   // Workflow controls
   autoInProgressOnCall: boolean;
+  requirePaymentBeforeInProgress: boolean;
+  autoDoneAfterInProgress: boolean;
+  autoDoneTimeout: number; // in minutes
+  autoCallNextOnDone: boolean;
 }
 
 export interface ChatMessage {

@@ -18,11 +18,13 @@ import {
   ConfirmationDialog,
   PaperAirplaneIcon,
   WrenchScrewdriverIcon as ExaminationIcon,
+  ArrowPathIcon,
 } from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
 import { toast } from 'react-hot-toast';
 import PatientHistoryModal from './PatientHistoryModal.tsx';
 import ConfirmationModal from './ConfirmationModal.tsx';
+import ExaminationNotesModal from './ExaminationNotesModal.tsx';
 import { updatePatientDetails, updatePatientStatus } from '../services/firebase.ts';
 
 interface PaymentModalProps {
@@ -177,7 +179,9 @@ interface PatientCardProps {
   patient: PatientVisit;
   index?: number;
   role: Role;
+  settings: ClinicSettings;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
+  onMoveToInProgress: (patient: PatientVisit) => void;
   onCancel: (id: string) => void;
   onDeleteClick: (patient: PatientVisit) => void;
   onCall: (patient: PatientVisit) => void;
@@ -186,6 +190,7 @@ interface PatientCardProps {
   onSetPayment: () => void;
   onShowHistory: () => void;
   onSetNotes: () => void;
+  onSetExaminationNotes: () => void;
   isBeingCalled?: boolean;
   isDraggable?: boolean;
   onDragStart?: (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => void;
@@ -200,6 +205,7 @@ const PatientCard: FC<PatientCardProps> = ({
   index,
   role,
   onUpdateStatus,
+  onMoveToInProgress,
   onDeleteClick,
   onCall,
   onStopCall,
@@ -207,6 +213,7 @@ const PatientCard: FC<PatientCardProps> = ({
   onSetPayment,
   onShowHistory,
   onSetNotes,
+  onSetExaminationNotes,
   isBeingCalled,
   isDraggable,
   onDragStart,
@@ -281,12 +288,15 @@ const PatientCard: FC<PatientCardProps> = ({
                 {patient.status === PatientStatus.Waiting && (
                   <>
                     <button onMouseDown={(e) => e.stopPropagation()} title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className={actionButtonClasses}><BellIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للطبيب" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                     <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={actionButtonClasses}><CurrencyDollarIcon className="w-5 h-5" /></button>
                   </>
                 )}
                 {patient.status === PatientStatus.InProgress && (
                     <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.PendingExamination)} className={actionButtonClasses}><ExaminationIcon className="w-5 h-5" /></button>
+                )}
+                {patient.status === PatientStatus.PendingExamination && (
+                    <button onMouseDown={(e) => e.stopPropagation()} title="إعادة للطبيب (إلى قيد المعالجة)" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><ArrowPathIcon className="w-5 h-5"/></button>
                 )}
                  {!isArchived && (
                    <>
@@ -304,14 +314,20 @@ const PatientCard: FC<PatientCardProps> = ({
             {role === Role.Doctor && (
               <>
                 {patient.status === PatientStatus.Waiting && (
-                  <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.InProgress)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
+                  <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                 )}
                 {patient.status === PatientStatus.InProgress && (
                   <>
                     <button onMouseDown={(e) => e.stopPropagation()} title="كتابة ملاحظات سريرية" onClick={onSetNotes} className={actionButtonClasses}><ClipboardDocumentListIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.PendingExamination)} className={actionButtonClasses}><PaperAirplaneIcon className="w-5 h-5" /></button>
+                    <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص مع ملاحظات" onClick={onSetExaminationNotes} className={actionButtonClasses}><PaperAirplaneIcon className="w-5 h-5" /></button>
                     <button onMouseDown={(e) => e.stopPropagation()} title="مكتمل" onClick={() => onUpdateStatus(patient.id, PatientStatus.Done)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
                   </>
+                )}
+                {patient.status === PatientStatus.PendingExamination && (
+                    <>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إعادة للفحص (إلى قيد المعالجة)" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><ArrowPathIcon className="w-5 h-5"/></button>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="مكتمل" onClick={() => onUpdateStatus(patient.id, PatientStatus.Done)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
+                    </>
                 )}
                  {patient.status !== PatientStatus.Waiting && !isArchived && (
                      <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
@@ -421,6 +437,7 @@ const StatusFilter: FC<{
 const PatientQueueList: FC<PatientQueueListProps> = ({
   patients,
   role,
+  settings,
   onUpdateStatus,
   onCancel,
   onDeletePatient,
@@ -433,6 +450,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [paymentPatient, setPaymentPatient] = useState<PatientVisit | null>(null);
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
   const [notesPatient, setNotesPatient] = useState<PatientVisit | null>(null);
+  const [examinationNotesPatient, setExaminationNotesPatient] = useState<PatientVisit | null>(null);
   const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatus | 'all'>('all');
@@ -518,12 +536,41 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     }
   };
 
-  const handleSetInProgress = (patientId: string) => {
-    if (inProgress.length > 0 && !inProgress.some(p => p.id === patientId)) {
+  const handleSaveExaminationNotes = async (patientId: string, notes: string) => {
+    const toastId = toast.loading('جاري إرسال المراجع للفحص...');
+    try {
+        const patient = patients.find(p => p.id === patientId);
+        if (!patient) throw new Error("Patient not found");
+
+        const existingNotes = patient.clinicalNotes || '';
+        const timestamp = new Date().toLocaleString('ar-SA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const newNotesSection = `\n\n--- ملاحظات للفحص [${timestamp}] ---\n${notes}`;
+        
+        const updatedNotes = existingNotes + newNotesSection;
+
+        await updatePatientDetails(patientId, { 
+            clinicalNotes: updatedNotes,
+            status: PatientStatus.PendingExamination 
+        });
+
+        toast.success('تم إرسال المراجع للفحص بنجاح.', { id: toastId });
+        setExaminationNotesPatient(null);
+    } catch (error) {
+        toast.error('فشل إرسال المراجع للفحص.', { id: toastId });
+        console.error("Failed to send patient for examination:", error);
+    }
+  };
+
+  const handleMoveToInProgress = (patient: PatientVisit) => {
+    if (settings.requirePaymentBeforeInProgress && !patient.isPaid) {
+      toast.error('يجب تسجيل دفعة للمراجع أولاً قبل إدخاله للطبيب.');
+      return;
+    }
+    if (inProgress.length > 0 && !inProgress.some(p => p.id === patient.id)) {
       toast.error('يوجد مراجع قيد الفحص حالياً. لا يمكن إدخال مراجع آخر.');
       return;
     }
-    onUpdateStatus(patientId, PatientStatus.InProgress);
+    onUpdateStatus(patient.id, PatientStatus.InProgress);
   };
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => {
@@ -552,7 +599,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         return;
     }
     if (targetStatus === PatientStatus.InProgress) {
-        handleSetInProgress(draggedPatient.id);
+        handleMoveToInProgress(draggedPatient);
     } else {
         onUpdateStatus(draggedPatient.id, targetStatus);
     }
@@ -594,7 +641,9 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         patient={patient}
         index={options.index}
         role={role}
+        settings={settings}
         onUpdateStatus={onUpdateStatus}
+        onMoveToInProgress={handleMoveToInProgress}
         onCancel={onCancel}
         onDeleteClick={setPatientToAction}
         onCall={onCall}
@@ -603,6 +652,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onSetPayment={() => setPaymentPatient(patient)}
         onShowHistory={() => setHistoryPatient(patient)}
         onSetNotes={() => setNotesPatient(patient)}
+        onSetExaminationNotes={() => setExaminationNotesPatient(patient)}
         isBeingCalled={callingPatient?.id === patient.id}
         isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patient.status)}
         onDragStart={handleDragStart}
@@ -682,6 +732,13 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
           patient={notesPatient}
           onClose={() => setNotesPatient(null)}
           onSave={handleSaveNotes}
+        />
+      )}
+      {examinationNotesPatient && role === Role.Doctor && (
+        <ExaminationNotesModal
+            patient={examinationNotesPatient}
+            onClose={() => setExaminationNotesPatient(null)}
+            onSave={handleSaveExaminationNotes}
         />
       )}
       {patientToAction && (

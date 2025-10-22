@@ -139,6 +139,30 @@ function App() {
     setCallTimeoutId(newTimeoutId);
   }, [settings.callSoundEnabled, settings.callDuration, callTimeoutId, settings.autoInProgressOnCall, handleUpdateStatus]);
   
+  // Effect for auto-calling next patient
+  useEffect(() => {
+    if (!settings.autoCallNextOnDone || !prevPatients || role === Role.Public) return;
+
+    const justFinishedPatient = prevPatients.find(
+      p => p.status === PatientStatus.InProgress && patients.find(np => np.id === p.id)?.status === PatientStatus.Done
+    );
+
+    if (justFinishedPatient) {
+      const nextPatientInQueue = patients.find(p => p.status === PatientStatus.Waiting);
+      if (nextPatientInQueue) {
+        toast.success(`تم إنهاء زيارة ${justFinishedPatient.name}. جاري النداء على التالي...`, {
+          duration: 4000,
+          position: 'bottom-left'
+        });
+        // Delay slightly to make it feel more natural
+        setTimeout(() => {
+          handleCallPatient(nextPatientInQueue);
+        }, 1000);
+      }
+    }
+  }, [patients, prevPatients, settings.autoCallNextOnDone, handleCallPatient, role]);
+
+
   const handleStopCall = useCallback(() => {
     if (callTimeoutId) {
         clearTimeout(callTimeoutId);

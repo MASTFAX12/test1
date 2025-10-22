@@ -13,4 +13,8 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   callDuration: 10, // seconds for the call notification to be visible
   publicTheme: 'deep-ocean',
   autoInProgressOnCall: false,
+  requirePaymentBeforeInProgress: false,
+  autoDoneAfterInProgress: false,
+  autoDoneTimeout: 30, // minutes
+  autoCallNextOnDone: false,
 };

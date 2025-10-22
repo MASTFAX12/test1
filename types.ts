@@ -17,7 +17,7 @@ export const themes: PublicTheme[] = [
   {
     id: 'deep-ocean',
     name: 'محيط هادئ',
-    background: 'bg-[#1a1a2e]',
+    background: 'bg-gradient-to-br from-[#1a1a2e] to-[#16213e]',
     primaryText: 'text-white',
     secondaryText: 'text-gray-300',
     cardBackground: 'bg-white/5 backdrop-blur-lg',
@@ -28,20 +28,20 @@ export const themes: PublicTheme[] = [
   {
     id: 'modern-light',
     name: 'نهاري حديث',
-    background: 'bg-gray-100',
-    primaryText: 'text-gray-800',
-    secondaryText: 'text-gray-600',
-    cardBackground: 'bg-white/80 backdrop-blur-lg',
-    cardBorder: 'border-gray-200',
-    timeDisplayBackground: 'bg-white shadow-sm',
-    listItemDefaultBackground: 'bg-black/5',
+    background: 'bg-gradient-to-br from-gray-50 to-slate-200',
+    primaryText: 'text-slate-900',
+    secondaryText: 'text-slate-500',
+    cardBackground: 'bg-white/60 backdrop-blur-xl shadow-2xl',
+    cardBorder: 'border-white/50',
+    timeDisplayBackground: 'bg-white/70 backdrop-blur-sm border border-slate-200/80 shadow-md',
+    listItemDefaultBackground: 'bg-white/80',
   },
   {
     id: 'forest-calm',
     name: 'غابة هادئة',
-    background: 'bg-emerald-900',
+    background: 'bg-gradient-to-br from-gray-800 to-emerald-900',
     primaryText: 'text-white',
-    secondaryText: 'text-emerald-200',
+    secondaryText: 'text-emerald-300',
     cardBackground: 'bg-white/5 backdrop-blur-lg',
     cardBorder: 'border-white/20',
     timeDisplayBackground: 'bg-white/10 backdrop-blur-sm',
@@ -50,14 +50,25 @@ export const themes: PublicTheme[] = [
   {
     id: 'royal-purple',
     name: 'بنفسجي ملكي',
-    background: 'bg-purple-900',
+    background: 'bg-gradient-to-br from-indigo-900 to-purple-900',
     primaryText: 'text-white',
-    secondaryText: 'text-purple-200',
+    secondaryText: 'text-purple-300',
     cardBackground: 'bg-white/5 backdrop-blur-lg',
     cardBorder: 'border-white/20',
     timeDisplayBackground: 'bg-white/10 backdrop-blur-sm',
     listItemDefaultBackground: 'bg-white/10',
   },
+  {
+    id: 'sunset-glow',
+    name: 'وهج الغروب',
+    background: 'bg-gradient-to-br from-orange-400 to-rose-500',
+    primaryText: 'text-white',
+    secondaryText: 'text-rose-100',
+    cardBackground: 'bg-black/10 backdrop-blur-lg',
+    cardBorder: 'border-white/20',
+    timeDisplayBackground: 'bg-black/10 backdrop-blur-sm',
+    listItemDefaultBackground: 'bg-black/10',
+  }
 ];
 
 export const getThemeById = (id: string | undefined | null): PublicTheme => {
@@ -68,16 +79,10 @@ export const getThemeById = (id: string | undefined | null): PublicTheme => {
 export enum PatientStatus {
   Waiting = 'waiting',
   InProgress = 'inprogress',
-  PendingPayment = 'pending_payment',
+  PendingExamination = 'pending_examination',
   Done = 'done',
   Skipped = 'skipped',
   Cancelled = 'cancelled',
-}
-
-export interface Service {
-  id: string;
-  name: string;
-  price: number;
 }
 
 // Represents a permanent patient record in the 'patients' collection
@@ -89,12 +94,6 @@ export interface PatientProfile {
   firstVisit: Timestamp;
 }
 
-export interface CustomLineItem {
-  id: string;
-  description: string;
-  price: number;
-}
-
 // Represents a single visit in the 'queue' collection
 export interface PatientVisit {
   id:string;
@@ -103,16 +102,14 @@ export interface PatientVisit {
   phone: string | null;
   reason: string | null;
   age: number | null; // Denormalized for easy display
-  amountPaid: number | null;
-  requiredAmount: number | null;
-  servicesRendered: Service[] | null;
-  customLineItems: CustomLineItem[] | null;
+  isPaid: boolean;
+  paymentAmount: number | null;
+  paymentNotes: string | null;
   clinicalNotes?: string;
   showDetailsToPublic: boolean;
   status: PatientStatus;
   createdAt: Timestamp; // Used for ordering in the queue
   visitDate: Timestamp;
-  sentToPaymentAt?: Timestamp; // Timestamp for when the doctor sends the patient to pay
 }
 
 export enum Role {
@@ -131,22 +128,15 @@ export interface ClinicSettings {
   secretaryPassword?: string;
   themeColor: string;
   callSoundEnabled: boolean;
-  services: Service[];
   // Form field controls
   showAgeField: boolean;
   showPhoneField: boolean;
   showReasonField: boolean;
-  showAmountPaidField: boolean;
   // Marquee controls
-  marqueeSpeed: number;
   callDuration: number;
-  archiveOlderThanDays: number;
   publicTheme: string;
   // Workflow controls
   autoInProgressOnCall: boolean;
-  autoDoneOnPayment: boolean;
-  // Advanced controls
-  enableAutoArchiving: boolean;
 }
 
 export interface ChatMessage {

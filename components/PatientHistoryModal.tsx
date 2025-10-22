@@ -68,48 +68,24 @@ const PatientHistoryModal: FC<PatientHistoryModalProps> = ({ patientProfileId, p
                         <span className="text-sm font-semibold text-gray-600">{visit.reason || 'زيارة عامة'}</span>
                       </div>
                       
-                      {(visit.servicesRendered && visit.servicesRendered.length > 0) || (visit.customLineItems && visit.customLineItems.length > 0) ? (
-                        <div className="mb-2 pl-4 border-r-2 border-blue-200 space-y-2">
-                           {visit.servicesRendered && visit.servicesRendered.length > 0 && (
-                            <div>
-                              <h4 className="text-xs font-semibold text-gray-500">الخدمات:</h4>
-                              <ul className="list-disc list-inside text-sm text-gray-600">
-                                {visit.servicesRendered.map(service => (
-                                  <li key={service.id}>{service.name} - {service.price.toLocaleString()} د.ع</li>
-                                ))}
-                              </ul>
-                            </div>
-                           )}
-                           {visit.customLineItems && visit.customLineItems.length > 0 && (
-                            <div>
-                               <h4 className="text-xs font-semibold text-gray-500">بنود إضافية/خصومات:</h4>
-                               <ul className="list-disc list-inside text-sm text-gray-600">
-                                {visit.customLineItems.map((item, index) => (
-                                    <li key={index} className={item.price < 0 ? 'text-red-600' : ''}>
-                                        {item.description} - {item.price.toLocaleString()} د.ع
-                                    </li>
-                                ))}
-                               </ul>
-                            </div>
-                           )}
-                        </div>
-                      ) : null}
-
                       {visit.clinicalNotes && (
                         <div className="mt-2 pt-2 border-t border-gray-200/60">
                             <h4 className="text-xs font-semibold text-gray-500 mb-1">الملاحظات السريرية:</h4>
                             <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-100 p-2 rounded-md">{visit.clinicalNotes}</p>
                         </div>
                       )}
+                      
+                      {visit.paymentNotes && (
+                        <div className="mt-2 pt-2 border-t border-gray-200/60">
+                            <h4 className="text-xs font-semibold text-gray-500 mb-1">ملاحظات الدفع:</h4>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap bg-yellow-50 p-2 rounded-md">{visit.paymentNotes}</p>
+                        </div>
+                      )}
 
                       <div className="flex justify-end gap-6 text-sm pt-2 border-t mt-2">
                           <div>
-                              <span className="font-semibold text-gray-500">المبلغ المطلوب: </span>
-                              <span className="font-bold text-red-600">{visit.requiredAmount?.toLocaleString() || 0} د.ع</span>
-                          </div>
-                          <div>
                               <span className="font-semibold text-gray-500">المبلغ المدفوع: </span>
-                              <span className="font-bold text-green-600">{visit.amountPaid?.toLocaleString() || 0} د.ع</span>
+                              <span className="font-bold text-green-600">{visit.paymentAmount?.toLocaleString() || 0} د.ع</span>
                           </div>
                       </div>
                     </li>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { PatientVisit, Service, CustomLineItem, ClinicSettings } from '../types.ts';
+import type { PatientVisit, ClinicSettings, PatientProfile } from '../types.ts';
 import { Role, PatientStatus } from '../types.ts';
 import { Timestamp } from 'firebase/firestore';
 
@@ -8,12 +8,14 @@ import AdminHeader from './AdminHeader.tsx';
 import PatientQueueList from './PatientQueueList.tsx';
 import StatsPanel from './StatsPanel.tsx';
 import ChatPanel from './ChatPanel.tsx';
+import PatientArchivePanel from './PatientArchivePanel.tsx';
 import { PlusIcon } from './Icons.tsx';
 
 interface AdminPanelProps {
   role: Role;
   settings: ClinicSettings;
   patients: PatientVisit[];
+  patientProfiles: PatientProfile[];
   callingPatient: PatientVisit | null;
   onLogout: () => void;
   onShowPublicView: () => void;
@@ -26,11 +28,19 @@ interface AdminPanelProps {
   onCall: (patient: PatientVisit) => void;
   onStopCall: () => void;
   onReorder: (patientId: string, newTimestamp: Timestamp) => void;
-  onSetPatientServices: (patient: PatientVisit, services: Service[], customItems: CustomLineItem[]) => void;
+  hasUnreadMessages: boolean;
+  onViewChat: () => void;
 }
 
 const AdminPanel: React.FC<AdminPanelProps> = (props) => {
-  const [activeView, setActiveView] = useState<'queue' | 'stats' | 'chat'>('queue');
+  const [activeView, setActiveView] = useState<'queue' | 'stats' | 'chat' | 'archive'>('queue');
+
+  const handleNavigate = (view: 'queue' | 'stats' | 'chat' | 'archive') => {
+    if (view === 'chat') {
+        props.onViewChat();
+    }
+    setActiveView(view);
+  };
 
   const renderActiveView = () => {
     switch (activeView) {
@@ -38,6 +48,8 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         return <StatsPanel patients={props.patients} settings={props.settings} />;
       case 'chat':
         return <ChatPanel role={props.role} />;
+      case 'archive':
+        return <PatientArchivePanel patientProfiles={props.patientProfiles} allVisits={props.patients} />;
       case 'queue':
       default:
         return (
@@ -51,8 +63,6 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             onStopCall={props.onStopCall}
             onReorder={props.onReorder}
             callingPatient={props.callingPatient}
-            availableServices={props.settings.services || []}
-            onSetPatientServices={props.onSetPatientServices}
             settings={props.settings}
           />
         );
@@ -63,8 +73,9 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
     <div className="h-screen w-screen flex bg-slate-100 overflow-hidden">
       <AdminSidebar
         activeView={activeView}
-        onNavigate={setActiveView}
+        onNavigate={handleNavigate}
         clinicName={props.settings.clinicName}
+        hasUnreadMessages={props.hasUnreadMessages}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AdminHeader

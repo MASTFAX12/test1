@@ -57,7 +57,7 @@ export const findOrCreatePatientProfile = async (details: { name: string; phone:
         const patientDoc = snapshotByName.docs[0];
         await updateDoc(doc(db, 'patients', patientDoc.id), {
             phone: details.phone || patientDoc.data().phone || null,
-            age: details.age || patientDoc.data().age || null,
+            age: details.age === undefined ? patientDoc.data().age : details.age,
         });
         return patientDoc.id;
     }
@@ -66,7 +66,7 @@ export const findOrCreatePatientProfile = async (details: { name: string; phone:
     const newPatientRef = await addDoc(patientsRef, {
         name: details.name,
         phone: details.phone || null,
-        age: details.age || null,
+        age: details.age === undefined ? null : details.age,
         firstVisit: Timestamp.now(),
     });
     return newPatientRef.id;
@@ -78,12 +78,11 @@ export const addPatientVisit = async (patientData: {
     phone: string;
     reason: string;
     age?: number;
-    amountPaid?: number;
     showDetailsToPublic?: boolean;
     visitDate?: Date;
 }) => {
     if (!db) return;
-    const { name, phone, reason, age, amountPaid, showDetailsToPublic, visitDate } = patientData;
+    const { name, phone, reason, age, showDetailsToPublic, visitDate } = patientData;
 
     // Get or create the patient profile first
     const patientProfileId = await findOrCreatePatientProfile({ name, phone, age });
@@ -94,11 +93,10 @@ export const addPatientVisit = async (patientData: {
         name,
         phone: phone || null,
         reason: reason || 'زيارة عامة',
-        age: age || null,
-        amountPaid: amountPaid ?? null,
-        requiredAmount: null,
-        servicesRendered: null,
-        customLineItems: null,
+        age: age === undefined ? null : age,
+        isPaid: false,
+        paymentAmount: null,
+        paymentNotes: null,
         clinicalNotes: null,
         showDetailsToPublic: showDetailsToPublic || false,
         status: 'waiting',
@@ -120,12 +118,12 @@ export const updatePatientDetails = async (id: string, details: Partial<Omit<Pat
   const dataToUpdate: { [key: string]: any } = { ...details };
 
   // This logic should also update the main patient profile if name/age/phone changes
-  if (details.patientProfileId && (details.name || details.phone || details.age)) {
+  if (details.patientProfileId && (details.name || details.phone || details.age !== undefined)) {
       const profileRef = doc(db, 'patients', details.patientProfileId);
       const profileUpdate: Partial<PatientProfile> = {};
       if (details.name) profileUpdate.name = details.name;
       if (details.phone) profileUpdate.phone = details.phone;
-      if (details.age) profileUpdate.age = details.age;
+      if (details.age !== undefined) profileUpdate.age = details.age;
       await updateDoc(profileRef, profileUpdate);
   }
 
@@ -164,9 +162,6 @@ export const updateClinicSettings = async (settings: Partial<ClinicSettings>) =>
   if (!db) return;
   const settingsRef = doc(db, 'settings', 'clinicConfig');
   const dataToSet: Partial<ClinicSettings> = { ...settings };
-  if (dataToSet.services && !Array.isArray(dataToSet.services)) {
-    delete dataToSet.services;
-  }
   // Passwords are now managed via settings, so we need to include them.
   // The old logic `delete dataToSet.doctorPassword` is removed.
 
@@ -279,80 +274,21 @@ export const getPatientHistory = async (patientProfileId: string): Promise<Patie
 };
 
 export const archiveVisitsByIds = async (visitIds: string[]): Promise<number> => {
-    if (!db || visitIds.length === 0) return 0;
-    const queueCollectionRef = collection(db, 'queue');
-    const archiveCollectionRef = collection(db, 'visits_archive');
-    let totalArchived = 0;
-
-    // Firestore 'in' query supports up to 30 items per query
-    for (let i = 0; i < visitIds.length; i += 30) {
-        const chunkIds = visitIds.slice(i, i + 30);
-        if (chunkIds.length === 0) continue;
-        
-        const q = query(queueCollectionRef, where('__name__', 'in', chunkIds));
-        const snapshot = await getDocs(q);
-        
-        if (snapshot.empty) continue;
-
-        const batch = writeBatch(db);
-        snapshot.forEach(docSnapshot => {
-            const archiveDocRef = doc(archiveCollectionRef, docSnapshot.id);
-            batch.set(archiveDocRef, docSnapshot.data());
-            batch.delete(docSnapshot.ref);
-        });
-        await batch.commit();
-        totalArchived += snapshot.size;
-    }
-    return totalArchived;
+    // This function is now deprecated as we no longer move files.
+    // Kept to avoid breaking imports, but it does nothing.
+    return Promise.resolve(0);
 };
 
 export const archiveOldPatientVisits = async (olderThanDays: number): Promise<number> => {
-    if (!db || olderThanDays <= 0) return 0;
-    const queueCollectionRef = collection(db, 'queue');
-    const archiveCollectionRef = collection(db, 'visits_archive');
-
-    const thresholdDate = new Date();
-    thresholdDate.setDate(thresholdDate.getDate() - olderThanDays);
-    const thresholdTimestamp = Timestamp.fromDate(thresholdDate);
-
-    // Query for all old documents first to avoid a composite index, then filter client-side.
-    const q = query(
-        queueCollectionRef,
-        where('visitDate', '<=', thresholdTimestamp)
-    );
-
-    const snapshot = await getDocs(q);
-
-    // Filter client-side for the correct statuses.
-    const statusesToArchive = [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped];
-    const docsToArchive = snapshot.docs.filter(doc => statusesToArchive.includes(doc.data().status));
-
-    if (docsToArchive.length === 0) {
-        return 0;
-    }
-
-    let totalArchived = 0;
-    const BATCH_SIZE = 250; // Each doc is 2 operations (set+delete), staying under 500 ops limit
-
-    for (let i = 0; i < docsToArchive.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const chunk = docsToArchive.slice(i, i + BATCH_SIZE);
-        chunk.forEach(docSnapshot => {
-            const archiveDocRef = doc(archiveCollectionRef, docSnapshot.id);
-            batch.set(archiveDocRef, docSnapshot.data());
-            batch.delete(docSnapshot.ref);
-        });
-        await batch.commit();
-        totalArchived += chunk.length;
-    }
-
-    return totalArchived;
+    // This function is now deprecated as we no longer move files.
+    // Kept to avoid breaking imports, but it does nothing.
+    return Promise.resolve(0);
 };
 
 export const clearActiveQueue = async (): Promise<number> => {
   if (!db) return 0;
   const queueCollectionRef = collection(db, 'queue');
-  const statusesToClear = [PatientStatus.Waiting, PatientStatus.InProgress, PatientStatus.PendingPayment];
+  const statusesToClear = [PatientStatus.Waiting, PatientStatus.InProgress, PatientStatus.PendingExamination];
 
   const q = query(queueCollectionRef, where('status', 'in', statusesToClear));
   const snapshot = await getDocs(q);
@@ -368,4 +304,52 @@ export const clearActiveQueue = async (): Promise<number> => {
 
   await batch.commit();
   return snapshot.size;
+};
+
+// --- NEW FUNCTIONS FOR PATIENT ARCHIVE ---
+
+export const updatePatientProfile = async (profileId: string, details: Partial<Omit<PatientProfile, 'id'>>) => {
+    if (!db) throw new Error("Firestore not initialized");
+
+    const batch = writeBatch(db);
+
+    // 1. Update the main patient profile document
+    const profileRef = doc(db, 'patients', profileId);
+    batch.update(profileRef, details);
+
+    // 2. Update denormalized data in all associated visit documents
+    const denormalizedDetails: Partial<PatientVisit> = {};
+    if (details.name) denormalizedDetails.name = details.name;
+    if (details.phone) denormalizedDetails.phone = details.phone;
+    if (details.age !== undefined) denormalizedDetails.age = details.age;
+
+    if (Object.keys(denormalizedDetails).length > 0) {
+        const visitsQuery = query(collection(db, 'queue'), where('patientProfileId', '==', profileId));
+        const visitsSnapshot = await getDocs(visitsQuery);
+        visitsSnapshot.forEach(visitDoc => {
+            batch.update(visitDoc.ref, denormalizedDetails);
+        });
+    }
+    
+    await batch.commit();
+};
+
+export const deletePatientProfile = async (profileId: string) => {
+    if (!db) throw new Error("Firestore not initialized");
+
+    const batch = writeBatch(db);
+
+    // 1. Find and delete all associated visit documents
+    const visitsQuery = query(collection(db, 'queue'), where('patientProfileId', '==', profileId));
+    const visitsSnapshot = await getDocs(visitsQuery);
+    visitsSnapshot.forEach(visitDoc => {
+        batch.delete(visitDoc.ref);
+    });
+
+    // 2. Delete the main patient profile document
+    const profileRef = doc(db, 'patients', profileId);
+    batch.delete(profileRef);
+
+    await batch.commit();
+    return visitsSnapshot.size; // Return number of visits deleted
 };

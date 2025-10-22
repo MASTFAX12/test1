@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { PatientVisit } from '../types.ts';
 import { updatePatientDetails } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
-import { SpinnerIcon, UserIcon, CakeIcon, PhoneIcon, PencilIcon as ReasonIcon, CurrencyDollarIcon } from './Icons.tsx';
+import { SpinnerIcon, UserIcon, CakeIcon, PhoneIcon, PencilIcon as ReasonIcon } from './Icons.tsx';
 
 interface EditablePatientCardProps {
   patient: PatientVisit;
@@ -16,7 +16,6 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
   const [phone, setPhone] = useState(patient.phone || '');
   const [reason, setReason] = useState(patient.reason || '');
   const [age, setAge] = useState(patient.age?.toString() || '');
-  const [amountPaid, setAmountPaid] = useState(patient.amountPaid?.toString() || '');
   const [showDetails, setShowDetails] = useState(patient.showDetailsToPublic || false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -30,11 +29,6 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
     const ageNum = parseInt(age, 10);
     if (age && (isNaN(ageNum) || ageNum < 0 || ageNum > 120)) {
         toast.error('يرجى إدخال عمر صحيح (بين 0 و 120).');
-        return;
-    }
-    const amountNum = parseFloat(amountPaid);
-    if (amountPaid && (isNaN(amountNum) || amountNum < 0)) {
-        toast.error('يرجى إدخال مبلغ صحيح (رقم موجب).');
         return;
     }
     const phoneRegex = /^[0-9\s+()-]*$/;
@@ -51,7 +45,6 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
           phone, 
           reason,
           age: age ? ageNum : null,
-          amountPaid: amountPaid ? amountNum : null,
           showDetailsToPublic: showDetails
       });
       toast.success('تم حفظ التعديلات.');
@@ -102,14 +95,6 @@ const EditablePatientCard: React.FC<EditablePatientCardProps> = ({ patient, onCa
             <div className="relative">
                 <div className={iconClasses}><ReasonIcon className="w-5 h-5"/></div>
                 <input id={`reason-${patient.id}`} type="text" value={reason} onChange={(e) => setReason(e.target.value)} className={inputClasses} />
-            </div>
-          </div>
-
-          <div className={fieldWrapperClasses}>
-            <label htmlFor={`amount-${patient.id}`} className="block text-sm font-medium text-slate-700 mb-1.5">المبلغ المدفوع</label>
-            <div className="relative">
-                <div className={iconClasses}><CurrencyDollarIcon className="w-5 h-5"/></div>
-                <input id={`amount-${patient.id}`} type="text" inputMode="decimal" value={amountPaid} onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }} className={inputClasses} />
             </div>
           </div>
 

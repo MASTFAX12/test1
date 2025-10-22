@@ -1,5 +1,5 @@
 import React, { useState, FC } from 'react';
-import { SpinnerIcon, XMarkIcon, UserIcon, CakeIcon, PhoneIcon, PencilIcon, CurrencyDollarIcon } from './Icons.tsx';
+import { SpinnerIcon, XMarkIcon, UserIcon, CakeIcon, PhoneIcon, PencilIcon } from './Icons.tsx';
 import type { ClinicSettings } from '../types.ts';
 import { addPatientVisit } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
@@ -36,7 +36,6 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
   const [phone, setPhone] = useState('');
   const [reason, setReason] = useState('');
   const [age, setAge] = useState('');
-  const [amountPaid, setAmountPaid] = useState('');
   const [showDetailsToPublic, setShowDetailsToPublic] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ phone?: string; age?: string }>({});
@@ -79,7 +78,6 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
         phone,
         reason,
         age: ageNum,
-        amountPaid: amountPaid ? parseFloat(amountPaid) : undefined,
         showDetailsToPublic,
       });
       toast.success(`تمت إضافة "${name}" إلى قائمة الانتظار.`);
@@ -162,20 +160,6 @@ const AddPatientModal: React.FC<AddPatientModalProps> = ({ settings, onClose }) 
                           value={reason}
                           onChange={(e) => setReason(e.target.value)}
                           placeholder="مثال: مراجعة عامة"
-                      />
-                )}
-                
-                {settings.showAmountPaidField && (
-                     <InputField
-                          id="amountPaid"
-                          label="الدفعة الأولية"
-                          icon={<CurrencyDollarIcon className="w-5 h-5" />}
-                          isOptional
-                          type="text"
-                          inputMode="decimal"
-                          value={amountPaid}
-                          onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmountPaid(e.target.value); }}
-                          placeholder="مثال: 10000"
                       />
                 )}
                 

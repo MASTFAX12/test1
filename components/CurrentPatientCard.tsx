@@ -33,10 +33,10 @@ const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callin
       <div className="relative z-10 flex flex-col items-center justify-center flex-grow">
         {isCalling ? (
           <>
-            <h2 className="text-3xl md:text-5xl font-bold mb-4 text-white drop-shadow-lg">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 text-white drop-shadow-lg">
               {callingTitle}
             </h2>
-            <p className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-wider break-words text-white drop-shadow-xl">
+            <p className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl xl:text-9xl font-black tracking-wider break-words text-white drop-shadow-xl">
               {callingPatient.name}
             </p>
           </>
@@ -44,17 +44,17 @@ const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callin
           <>
             {currentPatient ? (
               <>
-                <h2 className={`text-4xl sm:text-5xl lg:text-7xl font-bold ${theme.primaryText} drop-shadow-md mb-4 break-words leading-tight`}>
+                <h2 className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold ${theme.primaryText} drop-shadow-md mb-4 break-words leading-tight`}>
                   {currentPatient.name}
                 </h2>
                 {currentPatient.reason && (
-                  <p className={`text-2xl lg:text-3xl ${theme.secondaryText} opacity-90 mt-2`}>
+                  <p className={`text-xl sm:text-2xl lg:text-3xl xl:text-4xl ${theme.secondaryText} opacity-90 mt-2`}>
                     {currentPatient.reason}
                   </p>
                 )}
               </>
             ) : (
-              <div className={`text-4xl lg:text-5xl font-bold ${theme.primaryText} opacity-60`}>
+              <div className={`text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold ${theme.primaryText} opacity-60`}>
                 {noPatientText}
               </div>
             )}
@@ -65,8 +65,8 @@ const CurrentPatientCard: React.FC<CurrentPatientCardProps> = ({ patient, callin
       {!isCalling && (
         <div className="relative z-20 flex-shrink-0">
           <div className="bg-white/90 backdrop-blur-sm rounded-xl py-2 px-4 shadow-md inline-flex items-center gap-3">
-            <UserIcon className="w-8 h-8 text-[var(--theme-color)]" />
-            <span className="text-xl font-semibold text-gray-800">
+            <UserIcon className="w-8 h-8 lg:w-10 lg:h-10 text-[var(--theme-color)]" />
+            <span className="text-xl lg:text-2xl font-semibold text-gray-800">
               {title}
             </span>
           </div>

@@ -4,23 +4,23 @@ import { Timestamp } from 'firebase/firestore';
 import { useQueue } from './hooks/useQueue.ts';
 import { useSettings } from './hooks/useSettings.ts';
 import { usePrevious } from './hooks/usePrevious.ts';
+import { useChat } from './hooks/useChat.ts';
+import { usePatientProfiles } from './hooks/usePatientProfiles.ts';
 import { Role, PatientStatus } from './types.ts';
-import type { PatientVisit, Service, CustomLineItem, ClinicSettings } from './types.ts';
+import type { PatientVisit } from './types.ts';
 import { 
   updatePatientStatus, 
   cancelPatient, 
   deletePatientVisit,
-  updatePatientDetails, 
   reorderPatientQueue,
-  archiveOldPatientVisits,
+  updatePatientDetails,
 } from './services/firebase.ts';
-import { playNotificationSound } from './utils/audio.ts';
+import { playNotificationSound, playChatMessageSound } from './utils/audio.ts';
 import { getThemeById } from './types.ts';
 
 import AdminPanel from './components/AdminPanel.tsx';
 import CurrentPatientCard from './components/CurrentPatientCard.tsx';
 import LoginModal from './components/LoginModal.tsx';
-import Marquee from './components/Marquee.tsx';
 import TimeDisplay from './components/TimeDisplay.tsx';
 import CallingNotification from './components/CallingNotification.tsx';
 import SettingsModal from './components/SettingsModal.tsx';
@@ -31,6 +31,9 @@ import { ArrowUturnLeftIcon, LockClosedIcon } from './components/Icons.tsx';
 function App() {
   const { patients, loading: queueLoading } = useQueue();
   const { settings, loading: settingsLoading } = useSettings();
+  const { messages } = useChat();
+  const { patientProfiles, loading: profilesLoading } = usePatientProfiles();
+
   const [role, setRole] = useState<Role>(Role.Public);
   const [loggedInUserRole, setLoggedInUserRole] = useState<Role>(Role.None);
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
@@ -40,10 +43,11 @@ function App() {
   
   const [callingPatient, setCallingPatient] = useState<PatientVisit | null>(null);
   const [callTimeoutId, setCallTimeoutId] = useState<number | null>(null);
-  
   const [notifiedPatient, setNotifiedPatient] = useState<PatientVisit | null>(null);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
 
   const prevPatients = usePrevious(patients);
+  const prevMessages = usePrevious(messages);
   
   useEffect(() => {
     document.documentElement.style.setProperty('--theme-color', settings.themeColor);
@@ -53,8 +57,7 @@ function App() {
         console.error("Failed to save theme to localStorage", e);
     }
     
-    // Apply theme for public view or default for admin
-    document.body.className = ''; // Reset classes
+    document.body.className = '';
     if (role === Role.Public) {
         const currentTheme = getThemeById(settings.publicTheme);
         document.body.classList.add(...currentTheme.background.split(' '));
@@ -74,31 +77,18 @@ function App() {
     }
   }, [patients, prevPatients, role, settings.callSoundEnabled]);
 
-  // Effect for automatic daily archiving
   useEffect(() => {
-    if (role === Role.Doctor && settings.enableAutoArchiving) {
-      const now = new Date().getTime();
-      const lastArchiveStr = localStorage.getItem('lastAutoArchiveTimestamp');
-      const lastArchive = lastArchiveStr ? parseInt(lastArchiveStr, 10) : 0;
-      const oneDay = 24 * 60 * 60 * 1000;
+    if (role === Role.Public) return;
 
-      if (now - lastArchive > oneDay) {
-        console.log("Running automatic daily archive...");
-        toast.promise(
-          archiveOldPatientVisits(settings.archiveOlderThanDays).then(count => {
-            localStorage.setItem('lastAutoArchiveTimestamp', now.toString());
-            return count;
-          }),
-          {
-            loading: 'جاري تشغيل الأرشفة التلقائية...',
-            success: (count) => count > 0 ? `تمت أرشفة ${count} سجل قديم تلقائياً.` : 'لا توجد سجلات قديمة للأرشفة التلقائية.',
-            error: 'فشلت عملية الأرشفة التلقائية.',
-          },
-          { position: 'bottom-left' }
-        );
-      }
+    const isNewMessage = prevMessages && messages.length > prevMessages.length;
+    if (isNewMessage) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage && lastMessage.sender !== loggedInUserRole) {
+            playChatMessageSound();
+            setHasUnreadMessages(true);
+        }
     }
-  }, [role, settings.enableAutoArchiving, settings.archiveOlderThanDays]);
+  }, [messages, prevMessages, role, loggedInUserRole]);
 
   const handleLoginSuccess = (loggedInRole: Role) => {
     setLoggedInUserRole(loggedInRole);
@@ -118,10 +108,9 @@ function App() {
         [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patientToUpdate.status);
 
       if (status === PatientStatus.Waiting && isReturningFromArchive) {
-        // Re-queue the patient by updating status and timestamp to move to end of queue
         await updatePatientDetails(id, { status: PatientStatus.Waiting, createdAt: Timestamp.now() });
       } else {
-        await updatePatientStatus(id, status); // For other status changes
+        await updatePatientStatus(id, status);
       }
       toast.success('تم تحديث حالة المراجع.');
     } catch (error) {
@@ -160,7 +149,6 @@ function App() {
   }, [callTimeoutId]);
 
   const handleCancel = async (id: string) => {
-    // Confirmation is now handled by ConfirmationModal
     const toastId = toast.loading('جاري الأرشفة...');
     try {
         await cancelPatient(id);
@@ -172,7 +160,6 @@ function App() {
   };
 
   const handleDeletePatient = async (id: string) => {
-    // Confirmation is now handled by ConfirmationModal
     const toastId = toast.loading('جاري الحذف النهائي...');
     try {
         await deletePatientVisit(id);
@@ -191,31 +178,11 @@ function App() {
         console.error("Failed to reorder:", error);
     }
   };
-  
-  const handleSetServices = async (patient: PatientVisit, services: Service[], customItems: CustomLineItem[]) => {
-      const servicesTotal = services.reduce((acc, s) => acc + s.price, 0);
-      const customItemsTotal = customItems.reduce((acc, i) => acc + i.price, 0);
-      const requiredAmount = servicesTotal + customItemsTotal;
-      
-      try {
-          await updatePatientDetails(patient.id, {
-              servicesRendered: services,
-              customLineItems: customItems,
-              requiredAmount: requiredAmount,
-              status: PatientStatus.PendingPayment,
-              sentToPaymentAt: Timestamp.now()
-          });
-          toast.success(`تم تحديد رسوم ${patient.name} وإرسالها للسكرتير.`);
-      } catch (error) {
-          toast.error('فشل في تحديد الرسوم.');
-          console.error(error);
-      }
-  };
 
   const inProgressPatient = useMemo(() => patients.find(p => p.status === PatientStatus.InProgress), [patients]);
   const waitingPatients = useMemo(() => patients.filter(p => p.status === PatientStatus.Waiting), [patients]);
 
-  if (queueLoading || settingsLoading) {
+  if (queueLoading || settingsLoading || profilesLoading) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-gray-100">
         <p className="text-xl font-semibold">جاري تحميل بيانات العيادة...</p>
@@ -223,7 +190,6 @@ function App() {
     );
   }
 
-  // PUBLIC VIEW
   if (role === Role.Public) {
     const PUBLIC_DISPLAY_LIMIT = 15;
     const displayedWaiting = waitingPatients.slice(0, PUBLIC_DISPLAY_LIMIT);
@@ -231,17 +197,17 @@ function App() {
 
     return (
       <>
-        <main className="container mx-auto p-4 md:p-6 grid grid-rows-[auto_1fr_auto] gap-6 h-screen">
+        <main className="w-full p-4 md:p-6 flex flex-col gap-6 min-h-screen">
           <header className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-right">
-              <h1 className={`text-4xl md:text-5xl font-bold ${currentTheme.primaryText}`}>{settings.clinicName}</h1>
-              <p className={`text-lg md:text-xl ${currentTheme.secondaryText}`}>{settings.doctorName} - {settings.clinicSpecialty}</p>
+              <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black ${currentTheme.primaryText}`}>{settings.clinicName}</h1>
+              <p className={`text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl ${currentTheme.secondaryText}`}>{settings.doctorName} - {settings.clinicSpecialty}</p>
             </div>
             <TimeDisplay theme={currentTheme} />
           </header>
 
-          <div className="grid md:grid-cols-3 gap-6 overflow-hidden">
-            <div className="md:col-span-2">
+          <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
+            <div className="w-full md:w-2/3 flex flex-col">
               <CurrentPatientCard 
                 patient={inProgressPatient} 
                 callingPatient={callingPatient}
@@ -251,14 +217,14 @@ function App() {
                 theme={currentTheme}
               />
             </div>
-            <div className={`${currentTheme.cardBackground} p-4 rounded-2xl shadow-lg border ${currentTheme.cardBorder} flex flex-col`}>
-              <h2 className={`text-2xl font-bold text-center ${currentTheme.primaryText} mb-4 flex-shrink-0`}>قائمة الانتظار ({waitingPatients.length})</h2>
+            <div className={`${currentTheme.cardBackground} p-4 rounded-2xl shadow-lg border ${currentTheme.cardBorder} flex flex-col w-full md:w-1/3`}>
+              <h2 className={`text-2xl lg:text-3xl xl:text-4xl font-bold text-center ${currentTheme.primaryText} mb-4 flex-shrink-0`}>قائمة الانتظار ({waitingPatients.length})</h2>
               <ul className="space-y-3 overflow-y-auto h-full pr-2">
                 {displayedWaiting.length > 0 ? (
                   displayedWaiting.map((p, index) => (
-                    <li key={p.id} className={`${currentTheme.listItemDefaultBackground} p-3 rounded-lg text-xl md:text-2xl font-semibold ${currentTheme.primaryText} shadow-sm flex items-center gap-4 animate-fade-in`}>
-                      <span className="bg-[var(--theme-color)] text-white rounded-full h-9 w-9 flex items-center justify-center font-bold text-base flex-shrink-0 shadow-md">{index + 1}</span>
-                      {p.name}
+                    <li key={p.id} className={`${currentTheme.listItemDefaultBackground} p-3 rounded-lg text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold ${currentTheme.primaryText} shadow-sm flex items-center gap-4 animate-fade-in`}>
+                      <span className="bg-[var(--theme-color)] text-white rounded-full h-9 w-9 lg:h-12 lg:w-12 lg:text-xl xl:h-14 xl:w-14 xl:text-2xl flex items-center justify-center font-bold flex-shrink-0 shadow-md">{index + 1}</span>
+                      <span className="truncate">{p.name}</span>
                     </li>
                   ))
                 ) : (
@@ -272,10 +238,6 @@ function App() {
               </ul>
             </div>
           </div>
-
-          <footer className="flex justify-between items-center gap-4">
-            <Marquee text={settings.publicMessage} speed={settings.marqueeSpeed} theme={currentTheme} />
-          </footer>
         </main>
         <button
             onClick={() => {
@@ -304,13 +266,13 @@ function App() {
     );
   }
 
-  // ADMIN VIEW (Doctor or Secretary)
   return (
     <>
       <AdminPanel
         role={role}
         settings={settings}
         patients={patients}
+        patientProfiles={patientProfiles}
         callingPatient={callingPatient}
         onLogout={handleLogout}
         onShowPublicView={() => setRole(Role.Public)}
@@ -323,7 +285,8 @@ function App() {
         onCall={handleCallPatient}
         onStopCall={handleStopCall}
         onReorder={handleReorder}
-        onSetPatientServices={handleSetServices}
+        hasUnreadMessages={hasUnreadMessages}
+        onViewChat={() => setHasUnreadMessages(false)}
       />
       
       <Toaster toastOptions={{
@@ -332,7 +295,6 @@ function App() {
           },
       }} />
 
-      {/* Modals */}
       <CallingNotification patient={notifiedPatient} onClose={() => setNotifiedPatient(null)} />
       {isSettingsModalOpen && role === Role.Doctor && <SettingsModal settings={settings} onClose={() => setSettingsModalOpen(false)} />}
       {isAddPatientModalOpen && role === Role.Secretary && <AddPatientModal settings={settings} onClose={() => setAddPatientModalOpen(false)} />}

@@ -1,14 +1,11 @@
 import React, { useState, useEffect, FC } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { ClinicSettings, Service, PublicTheme } from '../types.ts';
+import type { ClinicSettings, PublicTheme } from '../types.ts';
 import { themes } from '../types.ts';
 import {
   XMarkIcon,
   TrashIcon,
-  PlusIcon,
   SpinnerIcon,
   Cog8ToothIcon,
-  CurrencyDollarIcon,
   PaintBrushIcon,
   ClipboardDocumentListIcon,
   LockClosedIcon,
@@ -28,7 +25,7 @@ import {
   ExclamationTriangleIcon,
   ConfirmationDialog,
 } from './Icons.tsx';
-import { updateClinicSettings, archiveOldPatientVisits, archiveAllChatMessages, clearActiveQueue } from '../services/firebase.ts';
+import { updateClinicSettings, archiveAllChatMessages, clearActiveQueue } from '../services/firebase.ts';
 import { toast } from 'react-hot-toast';
 import { DEFAULT_SETTINGS } from '../constants.ts';
 
@@ -73,11 +70,20 @@ const PublicThemeCard: FC<{ theme: PublicTheme; isSelected: boolean; onSelect: (
     <button
         type="button"
         onClick={onSelect}
-        className={`w-full rounded-xl border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-[var(--theme-color)] overflow-hidden shadow-sm group ${isSelected ? 'border-[var(--theme-color)] shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}
+        className={`w-full rounded-xl border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-[var(--theme-color)] overflow-hidden shadow-sm group ${isSelected ? 'border-[var(--theme-color)] shadow-lg scale-105' : 'border-gray-200 hover:border-gray-300 hover:scale-105'}`}
     >
-        <div className={`w-full h-20 rounded-t-lg p-3 ${theme.background} transition flex flex-col justify-between`}>
-            <div className={`h-2 w-3/4 rounded-sm ${theme.primaryText.includes('white') ? 'bg-white/70' : 'bg-gray-600/70'}`}></div>
-            <div className={`h-2 w-1/2 rounded-sm ${theme.secondaryText.includes('200') || theme.secondaryText.includes('300') ? 'bg-white/50' : 'bg-gray-400/70'}`}></div>
+        <div className={`w-full h-24 rounded-t-lg p-2 flex gap-2 ${theme.background}`}>
+            {/* Mock Current Patient Card */}
+            <div className={`w-2/3 h-full rounded-md ${theme.cardBackground} border ${theme.cardBorder} p-1.5 flex flex-col justify-between`}>
+                <div className={`h-1.5 w-3/4 rounded-sm ${theme.primaryText.includes('white') ? 'bg-white/60' : 'bg-gray-600/60'}`}></div>
+                <div className={`h-3 w-1/2 rounded ${theme.primaryText.includes('white') ? 'bg-white/90' : 'bg-gray-800/90'}`}></div>
+            </div>
+            {/* Mock Waiting List */}
+            <div className="w-1/3 h-full flex flex-col gap-1">
+                <div className={`h-full w-full rounded-sm ${theme.listItemDefaultBackground}`}></div>
+                <div className={`h-full w-full rounded-sm ${theme.listItemDefaultBackground}`}></div>
+                <div className={`h-full w-full rounded-sm ${theme.listItemDefaultBackground}`}></div>
+            </div>
         </div>
         <div className="p-3 text-center bg-white rounded-b-lg">
             <p className="font-semibold text-sm text-gray-700">{theme.name}</p>
@@ -92,9 +98,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [showDoctorPass, setShowDoctorPass] = useState(false);
   const [showSecretaryPass, setShowSecretaryPass] = useState(false);
-  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
-  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearQueueConfirm, setShowClearQueueConfirm] = useState(false);
   const [isClearingQueue, setIsClearingQueue] = useState(false);
@@ -120,28 +123,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
       setLocalSettings(prev => ({ ...prev, [name]: value === '' ? 0 : parseInt(value, 10) }));
   }
 
-  const handleServiceChange = (id: string, field: keyof Service, value: string | number) => {
-    const updatedServices = localSettings.services.map(s => 
-      s.id === id ? { ...s, [field]: value } : s
-    );
-    setLocalSettings(prev => ({ ...prev, services: updatedServices }));
-  };
-
-  const addService = () => {
-    const newService: Service = { id: uuidv4(), name: '', price: 0 };
-    setLocalSettings(prev => ({ ...prev, services: [...prev.services, newService] }));
-  };
-
-  const handleConfirmRemoveService = () => {
-    if (!serviceToDelete) return;
-    setLocalSettings(prevSettings => {
-      const updatedServices = prevSettings.services.filter(s => s.id !== serviceToDelete);
-      return { ...prevSettings, services: updatedServices };
-    });
-    toast.success('تمت إزالة الخدمة. اضغط "حفظ" لتأكيد التغييرات.');
-    setServiceToDelete(null);
-  };
-
   const handleSave = async () => {
     setIsSaving(true);
     const savingToast = toast.loading("جاري حفظ الإعدادات...");
@@ -154,21 +135,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
       toast.error("فشل حفظ الإعدادات.", { id: savingToast });
     } finally {
       setIsSaving(false);
-    }
-  };
-  
-  const handleArchive = async () => {
-    setShowArchiveConfirm(false);
-    setIsArchiving(true);
-    const toastId = toast.loading(`جاري أرشفة السجلات الأقدم من ${localSettings.archiveOlderThanDays} يوم...`);
-    try {
-        const count = await archiveOldPatientVisits(localSettings.archiveOlderThanDays);
-        toast.success(count > 0 ? `تمت أرشفة ${count} سجل بنجاح.` : `لا توجد سجلات قديمة للأرشفة.`, { id: toastId });
-    } catch (error) {
-        toast.error('فشلت عملية الأرشفة.', { id: toastId });
-        console.error(error);
-    } finally {
-        setIsArchiving(false);
     }
   };
   
@@ -223,16 +189,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                     <div className="md:col-span-2">
                         <Input icon={<SparklesIcon className="w-5 h-5"/>} name="clinicSpecialty" label="تخصص العيادة" value={localSettings.clinicSpecialty} onChange={handleChange} />
                     </div>
-                    <div className="md:col-span-2">
-                        <TextArea icon={<MegaphoneIcon className="w-5 h-5"/>} name="publicMessage" label="رسالة الشاشة العامة" value={localSettings.publicMessage} onChange={handleChange} />
-                    </div>
                 </div>
               </Section>
             )}
             {activeTab === 'appearance' && (
               <>
                 <Section title="ثيم الشاشة الرئيسية" description="اختر المظهر العام لشاشة عرض المرضى.">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         {themes.map(theme => (
                             <PublicThemeCard
                                 key={theme.id}
@@ -257,7 +220,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 </Section>
                  <Section title="إعدادات العرض" description="تحكم في العناصر المتحركة والتنبيهات الصوتية.">
                      <div className="space-y-4">
-                        <Input icon={<ClockIcon className="w-5 h-5"/>} name="marqueeSpeed" label="سرعة الشريط الإخباري (ثواني)" type="number" value={localSettings.marqueeSpeed.toString()} onChange={handleNumberChange} />
                         <Input icon={<MegaphoneIcon className="w-5 h-5"/>} name="callDuration" label="مدة عرض النداء (ثواني)" type="number" value={localSettings.callDuration?.toString() || '10'} onChange={handleNumberChange} />
                         <ToggleSwitch name="callSoundEnabled" label="تفعيل صوت النداء" checked={localSettings.callSoundEnabled} onChange={handleChange} description="تشغيل صوت عند إضافة مراجع أو النداء عليه." />
                     </div>
@@ -270,29 +232,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                     <FormFieldPreview icon={<CakeIcon className="w-5 h-5"/>} name="showAgeField" label="حقل العمر" checked={localSettings.showAgeField} onChange={handleChange} />
                     <FormFieldPreview icon={<PhoneIcon className="w-5 h-5"/>} name="showPhoneField" label="حقل الهاتف" checked={localSettings.showPhoneField} onChange={handleChange} />
                     <FormFieldPreview icon={<PencilSquareIcon className="w-5 h-5"/>} name="showReasonField" label="حقل سبب الزيارة" checked={localSettings.showReasonField} onChange={handleChange} />
-                    <FormFieldPreview icon={<CurrencyDollarIcon className="w-5 h-5"/>} name="showAmountPaidField" label="حقل الدفعة الأولية" checked={localSettings.showAmountPaidField} onChange={handleChange} />
-                </div>
-            </Section>
-          )}
-          {activeTab === 'services' && (
-            <Section title="الخدمات والأسعار" description="إدارة قائمة الخدمات والأسعار التي تقدمها العيادة.">
-                <div className="flex justify-end items-center mb-4">
-                    <button onClick={addService} className="flex items-center gap-1.5 bg-[var(--theme-color)] text-white text-sm font-bold py-2 px-4 rounded-lg hover:opacity-90 transition shadow-sm"><PlusIcon className="w-4 h-4" /> إضافة خدمة</button>
-                </div>
-                <div className="space-y-3 max-h-80 overflow-y-auto pr-2 -mr-2">
-                    {localSettings.services.map((service) => (
-                        <div key={service.id} className="flex items-center gap-3 p-3 rounded-lg bg-white border border-gray-200/80">
-                            <input type="text" value={service.name} onChange={e => handleServiceChange(service.id, 'name', e.target.value)} placeholder="اسم الخدمة" className="form-input flex-grow" />
-                            <input type="number" value={service.price} onChange={e => handleServiceChange(service.id, 'price', parseInt(e.target.value, 10) || 0)} placeholder="السعر" className="form-input w-36 text-left" />
-                            <button onClick={() => setServiceToDelete(service.id)} className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition"><TrashIcon className="w-5 h-5"/></button>
-                        </div>
-                    ))}
-                    {localSettings.services.length === 0 && (
-                         <div className="text-center text-gray-500 py-10 border-2 border-dashed border-gray-200 rounded-lg">
-                            <p className="font-semibold">لا توجد خدمات معرفة.</p>
-                            <p className="text-sm">اضغط على "إضافة خدمة" للبدء.</p>
-                         </div>
-                    )}
                 </div>
             </Section>
           )}
@@ -305,13 +244,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                   checked={localSettings.autoInProgressOnCall}
                   onChange={handleChange}
                   description="عند الضغط على زر النداء، يتم تغيير حالة المراجع مباشرة إلى 'قيد المعالجة'."
-                />
-                 <ToggleSwitch
-                  name="autoDoneOnPayment"
-                  label="نقل تلقائي إلى 'مكتمل' بعد الدفع"
-                  checked={localSettings.autoDoneOnPayment}
-                  onChange={handleChange}
-                  description="عند تسجيل دفعة لمراجع، يتم تغيير حالته مباشرة إلى 'مكتمل' وإرساله للأرشيف."
                 />
               </div>
             </Section>
@@ -342,42 +274,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 </div>
             </Section>
           )}
-           {activeTab === 'data' && (
-            <Section title="إدارة البيانات" description="تنفيذ عمليات الصيانة الدورية مثل أرشفة السجلات القديمة.">
-                <div className="space-y-4">
-                    <Input 
-                        icon={<ArchiveBoxIcon className="w-5 h-5"/>} 
-                        name="archiveOlderThanDays" 
-                        label="أرشفة الزيارات الأقدم من (أيام)" 
-                        type="number" 
-                        value={localSettings.archiveOlderThanDays?.toString() || '90'} 
-                        onChange={handleNumberChange} 
-                    />
-                    <p className="text-xs text-gray-500">سيتم أرشفة جميع الزيارات المكتملة أو الملغاة التي تاريخها أقدم من عدد الأيام المحدد. هذا الإجراء يساعد في الحفاظ على سرعة النظام.</p>
-                    <div className="pt-2">
-                        <button 
-                            onClick={() => setShowArchiveConfirm(true)} 
-                            disabled={isArchiving}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm disabled:bg-yellow-300"
-                        >
-                            {isArchiving ? <SpinnerIcon className="w-5 h-5" /> : <ArchiveBoxIcon className="w-5 h-5" />}
-                            {isArchiving ? 'جاري الأرشفة...' : 'أرشفة السجلات القديمة الآن'}
-                        </button>
-                    </div>
-                </div>
-            </Section>
-           )}
            {activeTab === 'advanced' && (
               <>
-                <Section title="الصيانة التلقائية" description="تفعيل المهام التلقائية للحفاظ على أداء النظام.">
-                   <ToggleSwitch
-                      name="enableAutoArchiving"
-                      label="تفعيل الأرشفة التلقائية اليومية"
-                      checked={localSettings.enableAutoArchiving}
-                      onChange={handleChange}
-                      description={`يقوم النظام تلقائياً بأرشفة السجلات القديمة (الأقدم من ${localSettings.archiveOlderThanDays} يوم) مرة كل 24 ساعة.`}
-                    />
-                </Section>
                 <div className="p-4 rounded-xl border-2 border-red-300 bg-red-50">
                     <div className="flex items-center gap-3 mb-2">
                         <ExclamationTriangleIcon className="w-6 h-6 text-red-500"/>
@@ -411,12 +309,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                 </header>
                 <nav className="flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-x-visible">
                     <SideTab id="general" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Cog8ToothIcon className="w-5 h-5"/>} label="عام" />
-                    <SideTab id="services" activeTab={activeTab} setActiveTab={setActiveTab} icon={<CurrencyDollarIcon className="w-5 h-5"/>} label="الخدمات" />
                     <SideTab id="appearance" activeTab={activeTab} setActiveTab={setActiveTab} icon={<PaintBrushIcon className="w-5 h-5"/>} label="المظهر" />
                     <SideTab id="fields" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ClipboardDocumentListIcon className="w-5 h-5"/>} label="الحقول" />
                     <SideTab id="workflow" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ArrowPathIcon className="w-5 h-5"/>} label="سير العمل" />
                     <SideTab id="security" activeTab={activeTab} setActiveTab={setActiveTab} icon={<LockClosedIcon className="w-5 h-5"/>} label="الأمان" />
-                    <SideTab id="data" activeTab={activeTab} setActiveTab={setActiveTab} icon={<ArchiveBoxIcon className="w-5 h-5"/>} label="البيانات" />
                     <SideTab id="advanced" activeTab={activeTab} setActiveTab={setActiveTab} icon={<WrenchScrewdriverIcon className="w-5 h-5"/>} label="متقدم" />
                 </nav>
             </aside>
@@ -461,7 +357,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
         onClose={() => setShowClearQueueConfirm(false)}
         onConfirm={handleClearQueue}
         title="تنظيف الطابور الحالي"
-        message="سيؤدي هذا إلى إلغاء جميع المراجعين في قوائم 'الانتظار' و 'قيد المعالجة' و 'بانتظار الدفع'. لا يمكن التراجع عن هذا الإجراء."
+        message="سيؤدي هذا إلى إلغاء جميع المراجعين في قوائم 'الانتظار' و 'قيد المعالجة' و 'بانتظار الفحص'. لا يمكن التراجع عن هذا الإجراء."
         confirmButtonText="نعم، تنظيف الطابور"
         confirmButtonColor="bg-red-600 hover:bg-red-700"
         icon={<TrashIcon className="w-5 h-5" />}
@@ -475,26 +371,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
         confirmButtonText="نعم، أرشفة الكل"
         confirmButtonColor="bg-yellow-500 hover:bg-yellow-600"
         icon={<ArchiveBoxIcon className="w-5 h-5" />}
-      />
-       <ConfirmationDialog
-        isOpen={showArchiveConfirm}
-        onClose={() => setShowArchiveConfirm(false)}
-        onConfirm={handleArchive}
-        title="تأكيد الأرشفة اليدوية"
-        message={`سيتم أرشفة جميع السجلات المكتملة والملغاة الأقدم من ${localSettings.archiveOlderThanDays} يوم بشكل دائم. لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد؟`}
-        confirmButtonText="نعم، أرشفة"
-        confirmButtonColor="bg-yellow-500 hover:bg-yellow-600"
-        icon={<ArchiveBoxIcon className="w-5 h-5" />}
-      />
-      <ConfirmationDialog
-        isOpen={!!serviceToDelete}
-        onClose={() => setServiceToDelete(null)}
-        onConfirm={handleConfirmRemoveService}
-        title="تأكيد الحذف"
-        message="هل أنت متأكد من حذف هذه الخدمة؟ لا يمكن التراجع عن هذا الإجراء."
-        confirmButtonText="نعم، حذف"
-        confirmButtonColor="bg-red-600 hover:bg-red-700"
-        icon={<TrashIcon className="w-5 h-5" />}
       />
     </>
   );

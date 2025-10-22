@@ -26,10 +26,9 @@ const SummaryCard: FC<{
   title: string;
   revenue: number;
   patientCount: number;
-  pendingAmount: number;
   icon: React.ReactNode;
   color: string;
-}> = ({ title, revenue, patientCount, pendingAmount, icon, color }) => (
+}> = ({ title, revenue, patientCount, icon, color }) => (
     <div className="bg-white p-6 rounded-2xl shadow-lg border-t-4" style={{ borderColor: color }}>
         <div className="flex items-center gap-4 mb-4">
             {React.cloneElement(icon as React.ReactElement, { className: 'w-8 h-8 p-1.5 rounded-lg text-white', style: { backgroundColor: color }})}
@@ -43,10 +42,6 @@ const SummaryCard: FC<{
             <div className="flex justify-between items-baseline">
                 <p className="text-sm text-gray-500">المرضى المكتملون</p>
                 <p className="text-xl font-bold text-gray-700">{patientCount}</p>
-            </div>
-            <div className="flex justify-between items-baseline">
-                <p className="text-sm text-gray-500">دفعات معلقة</p>
-                <p className="text-xl font-bold text-yellow-600">{pendingAmount.toLocaleString()} <span className="text-xs font-semibold">د.ع</span></p>
             </div>
         </div>
     </div>
@@ -81,9 +76,9 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients }) => {
     thirtyDaysAgo.setDate(now.getDate() - 30);
     thirtyDaysAgo.setHours(0,0,0,0);
     
-    const todayStats = { revenue: 0, patientCount: 0, pendingAmount: 0 };
-    const weekStats = { revenue: 0, patientCount: 0, pendingAmount: 0 };
-    const monthStats = { revenue: 0, patientCount: 0, pendingAmount: 0 };
+    const todayStats = { revenue: 0, patientCount: 0 };
+    const weekStats = { revenue: 0, patientCount: 0 };
+    const monthStats = { revenue: 0, patientCount: 0 };
     
     const dailyRevenueMap = new Map<string, number>();
 
@@ -92,30 +87,21 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients }) => {
 
         // Aggregate stats for cards
         if (visitDate >= monthStart) {
-            // This patient is in the current month
             if (p.status === PatientStatus.Done) {
-                monthStats.revenue += p.amountPaid || 0;
+                monthStats.revenue += p.paymentAmount || 0;
                 monthStats.patientCount++;
-            } else if (p.status === PatientStatus.PendingPayment) {
-                monthStats.pendingAmount += p.requiredAmount || 0;
             }
 
             if (visitDate >= weekStart) {
-                // This patient is in the current week
-                if (p.status === PatientStatus.Done) {
-                    weekStats.revenue += p.amountPaid || 0;
+                 if (p.status === PatientStatus.Done) {
+                    weekStats.revenue += p.paymentAmount || 0;
                     weekStats.patientCount++;
-                } else if (p.status === PatientStatus.PendingPayment) {
-                    weekStats.pendingAmount += p.requiredAmount || 0;
                 }
 
                 if (visitDate >= todayStart) {
-                    // This patient is from today
                     if (p.status === PatientStatus.Done) {
-                        todayStats.revenue += p.amountPaid || 0;
+                        todayStats.revenue += p.paymentAmount || 0;
                         todayStats.patientCount++;
-                    } else if (p.status === PatientStatus.PendingPayment) {
-                        todayStats.pendingAmount += p.requiredAmount || 0;
                     }
                 }
             }
@@ -125,7 +111,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ patients }) => {
         if (visitDate >= thirtyDaysAgo && p.status === PatientStatus.Done) {
             const dateKey = visitDate.toISOString().split('T')[0];
             const currentRevenue = dailyRevenueMap.get(dateKey) || 0;
-            dailyRevenueMap.set(dateKey, currentRevenue + (p.amountPaid || 0));
+            dailyRevenueMap.set(dateKey, currentRevenue + (p.paymentAmount || 0));
         }
     }
 

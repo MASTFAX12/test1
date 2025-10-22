@@ -1,4 +1,3 @@
-
 // A simple audio utility to play a notification sound using the Web Audio API.
 // This avoids needing to manage and load external audio files.
 
@@ -56,4 +55,36 @@ export const playNotificationSound = () => {
   playTone(523.25, 0, 0.2);
   playTone(659.25, 0.2, 0.2);
   playTone(783.99, 0.4, 0.3);
+};
+
+/**
+ * Plays a short, distinct sound for new chat messages.
+ */
+export const playChatMessageSound = () => {
+  if (document.visibilityState === 'visible') {
+    initializeAudio();
+  }
+
+  if (!audioContext || audioContext.state === 'suspended') {
+     audioContext?.resume();
+  }
+
+  if (!audioContext) return;
+
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  oscillator.type = 'triangle'; // A softer tone than sine
+  oscillator.frequency.value = 880.00; // A5 note
+  
+  const now = audioContext.currentTime;
+  gainNode.gain.setValueAtTime(0, now);
+  gainNode.gain.linearRampToValueAtTime(0.3, now + 0.01);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+  oscillator.start(now);
+  oscillator.stop(now + 0.15);
 };

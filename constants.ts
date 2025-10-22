@@ -17,4 +17,5 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   autoDoneAfterInProgress: false,
   autoDoneTimeout: 30, // minutes
   autoCallNextOnDone: false,
+  quickPaymentAmount: 15000,
 };

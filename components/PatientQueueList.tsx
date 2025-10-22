@@ -25,19 +25,23 @@ import { toast } from 'react-hot-toast';
 import PatientHistoryModal from './PatientHistoryModal.tsx';
 import ConfirmationModal from './ConfirmationModal.tsx';
 import ExaminationNotesModal from './ExaminationNotesModal.tsx';
-import { updatePatientDetails, updatePatientStatus } from '../services/firebase.ts';
+import { updatePatientDetails, updatePatientStatus, updateClinicSettings } from '../services/firebase.ts';
 
 interface PaymentModalProps {
   patient: PatientVisit;
   onClose: () => void;
   onSave: (patientId: string, amount: number, notes: string) => Promise<void>;
+  settings: ClinicSettings;
 }
 
-const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave }) => {
+const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave, settings }) => {
     const [amount, setAmount] = useState(patient.paymentAmount?.toString() || '');
     const [notes, setNotes] = useState(patient.paymentNotes || '');
     const [isSaving, setIsSaving] = useState(false);
     
+    const [isEditingShortcut, setIsEditingShortcut] = useState(false);
+    const [newShortcutAmount, setNewShortcutAmount] = useState(settings.quickPaymentAmount.toString());
+
     const handleSave = async () => {
         const amountNum = parseFloat(amount);
         if (isNaN(amountNum) || amountNum < 0) {
@@ -48,6 +52,27 @@ const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave }) => {
         await onSave(patient.id, amountNum, notes);
         setIsSaving(false);
     };
+
+    const handleShortcutEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsEditingShortcut(true);
+    };
+
+    const handleShortcutSave = async () => {
+        const newAmount = parseInt(newShortcutAmount, 10);
+        if (!isNaN(newAmount) && newAmount > 0) {
+            const toastId = toast.loading('جاري تحديث الاختصار...');
+            try {
+                await updateClinicSettings({ quickPaymentAmount: newAmount });
+                toast.success('تم تحديث مبلغ الاختصار.', { id: toastId });
+            } catch (error) {
+                toast.error('فشل تحديث الاختصار.', { id: toastId });
+            }
+        }
+        setIsEditingShortcut(false);
+    };
+    
+    const shortcutValueFormatted = new Intl.NumberFormat('ar-IQ').format(settings.quickPaymentAmount);
 
     return (
         <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -64,6 +89,39 @@ const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave }) => {
                 <div className="p-6 flex-grow space-y-5">
                     <div className="space-y-3">
                         <label htmlFor="paymentAmount" className="block text-sm font-medium text-slate-700 mb-1 text-center">أدخل المبلغ المدفوع</label>
+                        
+                        <div className="flex justify-center mb-3">
+                           {isEditingShortcut ? (
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={newShortcutAmount}
+                                        onChange={(e) => { if (/^\d*$/.test(e.target.value)) setNewShortcutAmount(e.target.value); }}
+                                        onBlur={handleShortcutSave}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleShortcutSave(); } }}
+                                        className="form-input text-lg text-center font-bold w-36"
+                                        autoFocus
+                                    />
+                                </div>
+                            ) : (
+                                <button 
+                                    type="button"
+                                    onClick={() => setAmount(settings.quickPaymentAmount.toString())}
+                                    className="relative bg-white border-2 border-slate-300 hover:border-[var(--theme-color)] text-slate-700 font-bold py-2 px-6 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--theme-color)]"
+                                >
+                                    {shortcutValueFormatted} <span className="text-xs font-normal">د.ع</span>
+                                    <div 
+                                        onClick={handleShortcutEdit}
+                                        title="تعديل مبلغ الاختصار"
+                                        className="absolute top-0 right-0 -mt-1 -mr-1 w-5 h-5 flex items-center justify-center rounded-full bg-slate-200 group-hover:bg-[var(--theme-color)] transition-all duration-200 cursor-pointer"
+                                    >
+                                        <PencilIcon className="w-3 h-3 text-slate-500 group-hover:text-white" />
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+
                         <div className="relative">
                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
                                 <CurrencyDollarIcon className="w-6 h-6"/>
@@ -76,7 +134,7 @@ const PaymentModal: FC<PaymentModalProps> = ({ patient, onClose, onSave }) => {
                                 onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmount(e.target.value); }}
                                 className="form-input !pl-12 !pr-4 text-3xl text-center font-bold !py-3 !rounded-lg border border-slate-300"
                                 placeholder="0"
-                                autoFocus
+                                autoFocus={!isEditingShortcut}
                             />
                         </div>
                     </div>
@@ -721,7 +779,8 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         <PaymentModal 
             patient={paymentPatient} 
             onClose={() => setPaymentPatient(null)} 
-            onSave={handlePaymentSave} 
+            onSave={handlePaymentSave}
+            settings={settings}
         />
       )}
       {historyPatient && (

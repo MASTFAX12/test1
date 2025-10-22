@@ -254,6 +254,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose }) => {
                   onChange={handleChange}
                   description="يمنع نقل المراجع إلى 'قيد المعالجة' ما لم يتم تسجيل دفعة له أولاً."
                 />
+                <Input
+                    icon={<CurrencyDollarIcon className="w-5 h-5" />}
+                    name="quickPaymentAmount"
+                    label="مبلغ الدفع السريع (الاختصار)"
+                    type="number"
+                    value={localSettings.quickPaymentAmount?.toString() || '15000'}
+                    onChange={handleNumberChange}
+                />
                  <ToggleSwitch
                   name="autoCallNextOnDone"
                   label="نداء تلقائي للمراجع التالي عند الانتهاء"

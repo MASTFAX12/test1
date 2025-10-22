@@ -141,6 +141,7 @@ export interface ClinicSettings {
   autoDoneAfterInProgress: boolean;
   autoDoneTimeout: number; // in minutes
   autoCallNextOnDone: boolean;
+  quickPaymentAmount: number;
 }
 
 export interface ChatMessage {

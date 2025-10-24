@@ -23,12 +23,12 @@ interface AdminPanelProps {
   onOpenSettingsModal: () => void;
   onOpenAddPatientModal: () => void;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
-  onCancel: (id: string) => void;
+  onArchive: (id: string) => void;
   onDeletePatient: (id: string) => void;
   onCall: (patient: PatientVisit) => void;
   onStopCall: () => void;
   onReorder: (patientId: string, newTimestamp: Timestamp) => void;
-  hasUnreadMessages: boolean;
+  unreadChatCount: number;
   onViewChat: () => void;
 }
 
@@ -57,7 +57,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             patients={props.patients}
             role={props.role}
             onUpdateStatus={props.onUpdateStatus}
-            onCancel={props.onCancel}
+            onArchive={props.onArchive}
             onDeletePatient={props.onDeletePatient}
             onCall={props.onCall}
             onStopCall={props.onStopCall}
@@ -75,7 +75,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         activeView={activeView}
         onNavigate={handleNavigate}
         clinicName={props.settings.clinicName}
-        hasUnreadMessages={props.hasUnreadMessages}
+        unreadChatCount={props.unreadChatCount}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AdminHeader

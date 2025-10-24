@@ -99,9 +99,10 @@ export const addPatientVisit = async (patientData: {
         paymentNotes: null,
         clinicalNotes: null,
         showDetailsToPublic: showDetailsToPublic || false,
-        status: 'waiting',
+        status: PatientStatus.Waiting,
         createdAt: Timestamp.now(), // For queue order
         visitDate: visitTimestamp,
+        wasExamined: false,
     });
 };
 
@@ -140,10 +141,10 @@ export const updatePatientDetails = async (id: string, details: Partial<Omit<Pat
 };
 
 
-export const cancelPatient = async (id: string) => {
+export const archivePatientVisit = async (id: string) => {
   if (!db) return;
   const patientRef = doc(db, 'queue', id);
-  await updateDoc(patientRef, { status: 'cancelled' });
+  await updateDoc(patientRef, { status: PatientStatus.Archived });
 };
 
 export const deletePatientVisit = async (id: string) => {
@@ -288,7 +289,7 @@ export const archiveOldPatientVisits = async (olderThanDays: number): Promise<nu
 export const clearActiveQueue = async (): Promise<number> => {
   if (!db) return 0;
   const queueCollectionRef = collection(db, 'queue');
-  const statusesToClear = [PatientStatus.Waiting, PatientStatus.InProgress, PatientStatus.PendingExamination];
+  const statusesToClear = [PatientStatus.Waiting, PatientStatus.InProgress, PatientStatus.PendingExamination, PatientStatus.PendingPayment];
 
   const q = query(queueCollectionRef, where('status', 'in', statusesToClear));
   const snapshot = await getDocs(q);
@@ -299,7 +300,7 @@ export const clearActiveQueue = async (): Promise<number> => {
 
   const batch = writeBatch(db);
   snapshot.forEach(docSnapshot => {
-    batch.update(docSnapshot.ref, { status: PatientStatus.Cancelled });
+    batch.update(docSnapshot.ref, { status: PatientStatus.Archived });
   });
 
   await batch.commit();

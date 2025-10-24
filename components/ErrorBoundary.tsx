@@ -10,8 +10,8 @@ interface State {
 }
 
 class ErrorBoundary extends Component<Props, State> {
-  // Fix: Replaced class property initialization with a constructor to ensure `this.props`
-  // and `this.state` are correctly recognized on the component instance.
+  // FIX: Reverted to using a constructor for state initialization.
+  // The class property syntax might not be correctly handled by the project's build setup, causing typing errors.
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -20,21 +20,21 @@ class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // You can also log the error to an error reporting service
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  handleReload = () => {
+  private handleReload = () => {
     window.location.reload();
   };
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       // You can render any custom fallback UI
       return (

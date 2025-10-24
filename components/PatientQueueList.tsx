@@ -18,7 +18,7 @@ import {
   ConfirmationDialog,
   PaperAirplaneIcon,
   WrenchScrewdriverIcon as ExaminationIcon,
-  ArrowPathIcon,
+  ClockIcon,
 } from './Icons.tsx';
 import EditablePatientCard from './EditablePatientCard.tsx';
 import { toast } from 'react-hot-toast';
@@ -26,6 +26,7 @@ import PatientHistoryModal from './PatientHistoryModal.tsx';
 import ConfirmationModal from './ConfirmationModal.tsx';
 import ExaminationNotesModal from './ExaminationNotesModal.tsx';
 import { updatePatientDetails, updatePatientStatus, updateClinicSettings } from '../services/firebase.ts';
+import { DEFAULT_SETTINGS } from '../constants.ts';
 
 interface PaymentModalProps {
   patient: PatientVisit;
@@ -219,19 +220,60 @@ const ClinicalNotesModal: FC<{
   );
 };
 
+interface ParsedNotes {
+    mainNotes: string;
+    examinationNotes: {
+        timestamp: string;
+        notes: string;
+    }[];
+}
+
+const parseClinicalNotes = (notes?: string): ParsedNotes => {
+    if (!notes) {
+        return { mainNotes: '', examinationNotes: [] };
+    }
+
+    const examinationNotes: { timestamp: string; notes: string }[] = [];
+    const separator = '--- ملاحظات للفحص';
+    
+    const parts = notes.split(separator);
+    const mainNotes = parts[0].trim();
+
+    for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+        const match = part.match(/ \[(.*?)] ---\n([\s\S]*)/);
+        if (match) {
+            examinationNotes.push({
+                timestamp: match[1],
+                notes: match[2].trim(),
+            });
+        }
+    }
+
+    return { mainNotes, examinationNotes };
+};
 
 interface PatientQueueListProps {
   patients: PatientVisit[];
   role: Role;
   settings: ClinicSettings;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
-  onCancel: (id: string) => void;
+  onArchive: (id: string) => void;
   onDeletePatient: (id: string) => void;
   onCall: (patient: PatientVisit) => void;
   onStopCall: () => void;
   onReorder: (patientId: string, newTimestamp: Timestamp) => void;
   callingPatient: PatientVisit | null;
 }
+
+const statusConfig = {
+    [PatientStatus.Waiting]: { text: 'في الانتظار', textColor: 'text-blue-600', borderColor: 'border-blue-400', icon: <ClockIcon className="w-5 h-5" /> },
+    [PatientStatus.InProgress]: { text: 'عند الطبيب', textColor: 'text-red-600', borderColor: 'border-red-400', icon: <UserIcon className="w-5 h-5" /> },
+    [PatientStatus.PendingExamination]: { text: 'بانتظار الفحص', textColor: 'text-purple-600', borderColor: 'border-purple-400', icon: <ExaminationIcon className="w-5 h-5" /> },
+    [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', textColor: 'text-yellow-600', borderColor: 'border-yellow-400', icon: <CurrencyDollarIcon className="w-5 h-5" /> },
+    [PatientStatus.Done]: { text: 'مكتمل', textColor: 'text-green-600', borderColor: 'border-green-400', icon: <CheckIcon className="w-5 h-5" /> },
+    [PatientStatus.Archived]: { text: 'مؤرشف', textColor: 'text-gray-600', borderColor: 'border-gray-400', icon: <ArchiveBoxIcon className="w-5 h-5" /> },
+};
 
 interface PatientCardProps {
   patient: PatientVisit;
@@ -240,7 +282,6 @@ interface PatientCardProps {
   settings: ClinicSettings;
   onUpdateStatus: (id: string, status: PatientStatus) => void;
   onMoveToInProgress: (patient: PatientVisit) => void;
-  onCancel: (id: string) => void;
   onDeleteClick: (patient: PatientVisit) => void;
   onCall: (patient: PatientVisit) => void;
   onStopCall: () => void;
@@ -249,6 +290,9 @@ interface PatientCardProps {
   onShowHistory: () => void;
   onSetNotes: () => void;
   onSetExaminationNotes: () => void;
+  onEditExaminationNote: (patient: PatientVisit, index: number, text: string) => void;
+  onDeleteExaminationNote: (patient: PatientVisit, index: number) => void;
+  onReturnToWaiting: (id: string) => void;
   isBeingCalled?: boolean;
   isDraggable?: boolean;
   onDragStart?: (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => void;
@@ -262,6 +306,7 @@ const PatientCard: FC<PatientCardProps> = ({
   patient,
   index,
   role,
+  settings,
   onUpdateStatus,
   onMoveToInProgress,
   onDeleteClick,
@@ -272,6 +317,9 @@ const PatientCard: FC<PatientCardProps> = ({
   onShowHistory,
   onSetNotes,
   onSetExaminationNotes,
+  onEditExaminationNote,
+  onDeleteExaminationNote,
+  onReturnToWaiting,
   isBeingCalled,
   isDraggable,
   onDragStart,
@@ -280,20 +328,13 @@ const PatientCard: FC<PatientCardProps> = ({
   onDropReorder,
   onDragLeaveReorder,
 }) => {
-  const statusConfig = {
-    [PatientStatus.Waiting]: { text: 'في الانتظار', color: 'bg-blue-100 text-blue-800', borderColor: 'border-blue-400' },
-    [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-100 text-red-800', borderColor: 'border-red-400' },
-    [PatientStatus.PendingExamination]: { text: 'بانتظار الفحص', color: 'bg-purple-100 text-purple-800', borderColor: 'border-purple-400' },
-    [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-100 text-green-800', borderColor: 'border-green-400' },
-    [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-300' },
-    [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-100 text-gray-800', borderColor: 'border-gray-300' },
-  };
 
-  const { text: statusText, color: statusColor, borderColor } = statusConfig[patient.status] || {};
-  const isArchived = [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patient.status);
+  const { text: statusText, textColor, borderColor, icon: statusIcon } = statusConfig[patient.status] || {};
+  const isArchived = [PatientStatus.Done, PatientStatus.Archived].includes(patient.status);
+  const { mainNotes, examinationNotes } = useMemo(() => parseClinicalNotes(patient.clinicalNotes), [patient.clinicalNotes]);
 
   const cardClasses = [
-    'bg-white rounded-xl py-3 px-4 shadow-sm border-l-4 transition-all duration-300 relative group',
+    'bg-white rounded-xl py-3 px-4 shadow-sm border-l-4 transition-all duration-300 relative group flex flex-col',
     isBeingCalled ? 'ring-2 ring-[var(--theme-color)] animate-pulse' : 'hover:shadow-lg hover:-translate-y-1',
     isDraggable ? 'cursor-grab' : '',
     borderColor
@@ -311,92 +352,134 @@ const PatientCard: FC<PatientCardProps> = ({
       onDrop={(e) => onDropReorder?.(e, patient.id)}
       onDragLeave={onDragLeaveReorder}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          {index !== undefined && <span className="flex-shrink-0 bg-gray-100 text-gray-600 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center border border-gray-200">{index + 1}</span>}
-          <div className="flex-grow min-w-0">
-            <h3 className="font-bold text-gray-800 text-lg truncate">{patient.name}</h3>
+      <div className="flex-grow">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              {index !== undefined && <span className="flex-shrink-0 bg-gray-100 text-gray-600 text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center border border-gray-200">{index + 1}</span>}
+              <div className="flex-grow min-w-0">
+                <h3 className="font-bold text-gray-800 text-lg truncate">{patient.name}</h3>
+              </div>
+            </div>
+             <div className="flex items-center gap-2 flex-shrink-0">
+                {patient.isPaid && patient.status !== PatientStatus.PendingPayment &&(
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 animate-fade-in" title={`تم دفع ${patient.paymentAmount?.toLocaleString()} د.ع`}>
+                        تم الدفع
+                    </span>
+                )}
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusColor}`}>{statusText}</span>
-            {patient.isPaid && patient.status === PatientStatus.Waiting && (
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-200 text-green-800 animate-fade-in" title={`تم دفع ${patient.paymentAmount?.toLocaleString()} د.ع`}>
-                    تم الدفع
-                </span>
+          
+          <div className="mt-2 pt-2 border-t border-gray-200/80 space-y-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-600">
+                <div className="flex items-center gap-1.5"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
+                <div className="flex items-center gap-1.5"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المدفوع:</span> <span className="font-bold">{patient.paymentAmount?.toLocaleString() || 'لم يدفع'}</span></div>
+            </div>
+
+            {(mainNotes || examinationNotes.length > 0 || (patient.wasExamined && patient.status === PatientStatus.Waiting)) && (
+              <div className="pt-2 border-t border-gray-200/60 mt-2 space-y-1.5">
+                {patient.wasExamined && patient.status === PatientStatus.Waiting && (
+                    <div className="pt-1 inline-block">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 animate-fade-in" title="تم فحصه سابقاً">
+                            بعد الفحص
+                        </span>
+                    </div>
+                )}
+                {mainNotes && (
+                    <div className="w-full text-right text-xs text-gray-500 group flex items-start gap-2 pt-1 relative">
+                        <ClipboardDocumentListIcon className="w-4 h-4 text-gray-400 group-hover:text-blue-500 mt-0.5 flex-shrink-0" />
+                        <p className="flex-1 whitespace-pre-wrap">{mainNotes}</p>
+                    </div>
+                )}
+                {examinationNotes.map((note, index) => (
+                    <div key={index} className="w-full text-right text-xs text-purple-700 bg-purple-50 p-2 rounded-md border border-purple-200/80 group flex items-start gap-2 relative">
+                        <PaperAirplaneIcon className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                            <p className="whitespace-pre-wrap">{note.notes}</p>
+                            <p className="text-[10px] text-purple-400 mt-1">{note.timestamp}</p>
+                        </div>
+                        {role !== Role.Public && (
+                           <div className="absolute top-1 left-1 flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-purple-100/50 rounded-full p-0.5">
+                              <button title="تعديل الملاحظة" onClick={() => onEditExaminationNote(patient, index, note.notes)} className="p-1 rounded-full hover:bg-purple-200/80"><PencilIcon className="w-3.5 h-3.5"/></button>
+                              <button title="حذف الملاحظة" onClick={() => onDeleteExaminationNote(patient, index)} className="p-1 rounded-full hover:bg-purple-200/80"><TrashIcon className="w-3.5 h-3.5"/></button>
+                           </div>
+                        )}
+                    </div>
+                ))}
+              </div>
             )}
-        </div>
+          </div>
       </div>
       
-      <div className="mt-2 pt-2 border-t border-gray-200/80 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-600">
-        <div className="flex items-center gap-1.5"><UserIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">العمر:</span> {patient.age || 'غير محدد'}</div>
-        <div className="flex items-center gap-1.5"><CurrencyDollarIcon className="w-4 h-4 text-gray-400" /><span className="font-medium">المدفوع:</span> <span className="font-bold">{patient.paymentAmount?.toLocaleString() || 'لم يدفع'}</span></div>
-      </div>
-      
-      {!isBeingCalled && (
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/70 backdrop-blur-sm p-1 rounded-lg border border-gray-200 shadow-sm">
-            {/* Actions for All Roles */}
-            {patient.patientProfileId && (
-              <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={actionButtonClasses}><ArchiveBoxIcon className="w-5 h-5" /></button>
-            )}
+      <div className="mt-3 pt-2 border-t border-gray-200/80 flex items-center justify-between">
+         <div title={statusText} className={`flex items-center font-bold ${textColor}`}>
+            {statusIcon}
+         </div>
+          {!isBeingCalled && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {/* Actions for All Roles */}
+                {patient.patientProfileId && (
+                  <button onMouseDown={(e) => e.stopPropagation()} title="عرض سجل المراجع" onClick={onShowHistory} className={actionButtonClasses}><ArchiveBoxIcon className="w-5 h-5" /></button>
+                )}
 
-            {/* SECRETARY ACTIONS */}
-            {role === Role.Secretary && (
-              <>
-                {patient.status === PatientStatus.Waiting && (
+                {/* SECRETARY ACTIONS */}
+                {role === Role.Secretary && (
                   <>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className={actionButtonClasses}><BellIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للطبيب" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={actionButtonClasses}><CurrencyDollarIcon className="w-5 h-5" /></button>
+                    {patient.status === PatientStatus.Waiting && (
+                      <>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="نداء" onClick={() => onCall(patient)} disabled={!!isBeingCalled} className={actionButtonClasses}><BellIcon className="w-5 h-5" /></button>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للطبيب" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={actionButtonClasses}><CurrencyDollarIcon className="w-5 h-5" /></button>
+                      </>
+                    )}
+                    {patient.status === PatientStatus.InProgress && (
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص مع ملاحظات" onClick={onSetExaminationNotes} className={actionButtonClasses}><PaperAirplaneIcon className="w-5 h-5" /></button>
+                    )}
+                    {patient.status === PatientStatus.PendingExamination && (
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار (بعد الفحص)" onClick={() => onReturnToWaiting(patient.id)} className={`${actionButtonClasses} !text-purple-600 hover:!bg-purple-100`}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
+                    )}
+                    {patient.status === PatientStatus.PendingPayment && (
+                        <button onMouseDown={(e) => e.stopPropagation()} title="تسجيل دفعة" onClick={onSetPayment} className={`${actionButtonClasses} !text-yellow-600 hover:!bg-yellow-100`}><CurrencyDollarIcon className="w-5 h-5" /></button>
+                    )}
+                     {!isArchived && (
+                       <>
+                          <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={actionButtonClasses}><PencilIcon className="w-5 h-5" /></button>
+                          <button onMouseDown={(e) => e.stopPropagation()} title="أرشفة أو حذف" onClick={() => onDeleteClick(patient)} className={actionButtonClasses}><TrashIcon className="w-5 h-5" /></button>
+                       </>
+                     )}
+                     {isArchived && (
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
+                     )}
                   </>
                 )}
-                {patient.status === PatientStatus.InProgress && (
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص" onClick={() => onUpdateStatus(patient.id, PatientStatus.PendingExamination)} className={actionButtonClasses}><ExaminationIcon className="w-5 h-5" /></button>
-                )}
-                {patient.status === PatientStatus.PendingExamination && (
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إعادة للطبيب (إلى قيد المعالجة)" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><ArrowPathIcon className="w-5 h-5"/></button>
-                )}
-                 {!isArchived && (
-                   <>
-                      <button onMouseDown={(e) => e.stopPropagation()} title="تعديل" onClick={onEdit} disabled={isBeingCalled} className={actionButtonClasses}><PencilIcon className="w-5 h-5" /></button>
-                      <button onMouseDown={(e) => e.stopPropagation()} title="أرشفة أو حذف" onClick={() => onDeleteClick(patient)} className={actionButtonClasses}><TrashIcon className="w-5 h-5" /></button>
-                   </>
-                 )}
-                 {isArchived && (
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
-                 )}
-              </>
-            )}
 
-            {/* DOCTOR ACTIONS */}
-            {role === Role.Doctor && (
-              <>
-                {patient.status === PatientStatus.Waiting && (
-                  <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
-                )}
-                {patient.status === PatientStatus.InProgress && (
+                {/* DOCTOR ACTIONS */}
+                {role === Role.Doctor && (
                   <>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="كتابة ملاحظات سريرية" onClick={onSetNotes} className={actionButtonClasses}><ClipboardDocumentListIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص مع ملاحظات" onClick={onSetExaminationNotes} className={actionButtonClasses}><PaperAirplaneIcon className="w-5 h-5" /></button>
-                    <button onMouseDown={(e) => e.stopPropagation()} title="مكتمل" onClick={() => onUpdateStatus(patient.id, PatientStatus.Done)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
-                  </>
-                )}
-                {patient.status === PatientStatus.PendingExamination && (
-                    <>
-                        <button onMouseDown={(e) => e.stopPropagation()} title="إعادة للفحص (إلى قيد المعالجة)" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><ArrowPathIcon className="w-5 h-5"/></button>
+                    {patient.status === PatientStatus.Waiting && (
+                      <button onMouseDown={(e) => e.stopPropagation()} title="إدخال للفحص" onClick={() => onMoveToInProgress(patient)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
+                    )}
+                    {patient.status === PatientStatus.InProgress && (
+                      <>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="كتابة ملاحظات سريرية" onClick={onSetNotes} className={actionButtonClasses}><ClipboardDocumentListIcon className="w-5 h-5" /></button>
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إرسال للفحص مع ملاحظات" onClick={onSetExaminationNotes} className={actionButtonClasses}><PaperAirplaneIcon className="w-5 h-5" /></button>
                         <button onMouseDown={(e) => e.stopPropagation()} title="مكتمل" onClick={() => onUpdateStatus(patient.id, PatientStatus.Done)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
-                    </>
+                      </>
+                    )}
+                    {[PatientStatus.PendingExamination, PatientStatus.PendingPayment].includes(patient.status) && (
+                        <button onMouseDown={(e) => e.stopPropagation()} title="مكتمل" onClick={() => onUpdateStatus(patient.id, PatientStatus.Done)} className={actionButtonClasses}><CheckIcon className="w-5 h-5" /></button>
+                    )}
+                     {patient.status !== PatientStatus.Waiting && !isArchived && (
+                         <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
+                     )}
+                     {isArchived && (
+                        <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
+                     )}
+                  </>
                 )}
-                 {patient.status !== PatientStatus.Waiting && !isArchived && (
-                     <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
-                 )}
-                 {isArchived && (
-                    <button onMouseDown={(e) => e.stopPropagation()} title="إرجاع للانتظار" onClick={() => onUpdateStatus(patient.id, PatientStatus.Waiting)} className={actionButtonClasses}><ArrowUturnLeftIcon className="w-5 h-5"/></button>
-                 )}
-              </>
-            )}
-        </div>
-      )}
+            </div>
+          )}
+      </div>
+
       {isBeingCalled && (
           <div className="absolute bottom-3 left-3 w-[calc(100%-24px)] px-1">
               <button
@@ -450,7 +533,7 @@ const filterableStatuses: (PatientStatus | 'all')[] = [
   PatientStatus.InProgress,
   PatientStatus.PendingExamination,
   PatientStatus.Done,
-  PatientStatus.Cancelled,
+  PatientStatus.Archived,
 ];
 
 const StatusFilter: FC<{
@@ -458,14 +541,14 @@ const StatusFilter: FC<{
   onSelectFilter: (status: PatientStatus | 'all') => void;
   counts: Record<PatientStatus | 'all', number>;
 }> = ({ activeFilter, onSelectFilter, counts }) => {
-    const statusConfig = {
+    const statusConfigFilter = {
         'all': { text: 'الكل', color: 'bg-slate-500' },
         [PatientStatus.Waiting]: { text: 'الانتظار', color: 'bg-blue-500' },
-        [PatientStatus.InProgress]: { text: 'قيد المعالجة', color: 'bg-red-500' },
+        [PatientStatus.InProgress]: { text: 'عند الطبيب', color: 'bg-red-500' },
         [PatientStatus.PendingExamination]: { text: 'بانتظار الفحص', color: 'bg-purple-500' },
+        [PatientStatus.PendingPayment]: { text: 'بانتظار الدفع', color: 'bg-yellow-500' },
         [PatientStatus.Done]: { text: 'مكتمل', color: 'bg-green-500' },
-        [PatientStatus.Cancelled]: { text: 'ملغي', color: 'bg-gray-600' },
-        [PatientStatus.Skipped]: { text: 'تم التجاوز', color: 'bg-gray-500' },
+        [PatientStatus.Archived]: { text: 'مؤرشف', color: 'bg-gray-600' },
     };
 
     return (
@@ -476,11 +559,11 @@ const StatusFilter: FC<{
                     onClick={() => onSelectFilter(status)}
                     className={`flex items-center gap-2 whitespace-nowrap text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-200 ${
                         activeFilter === status
-                            ? `${statusConfig[status].color} text-white shadow`
+                            ? `${statusConfigFilter[status].color} text-white shadow`
                             : `bg-white text-slate-600 hover:bg-slate-200/60 border border-slate-200`
                     }`}
                 >
-                    <span>{statusConfig[status].text}</span>
+                    <span>{statusConfigFilter[status].text}</span>
                     <span className={`px-1.5 py-0.5 rounded-full text-xs ${
                         activeFilter === status
                             ? 'bg-white/20'
@@ -497,7 +580,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   role,
   settings,
   onUpdateStatus,
-  onCancel,
+  onArchive,
   onDeletePatient,
   onCall,
   onStopCall,
@@ -509,6 +592,8 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   const [historyPatient, setHistoryPatient] = useState<PatientVisit | null>(null);
   const [notesPatient, setNotesPatient] = useState<PatientVisit | null>(null);
   const [examinationNotesPatient, setExaminationNotesPatient] = useState<PatientVisit | null>(null);
+  const [editingExamNote, setEditingExamNote] = useState<{ patient: PatientVisit; index: number; text: string } | null>(null);
+  const [deletingExamNoteInfo, setDeletingExamNoteInfo] = useState<{ patient: PatientVisit; index: number } | null>(null);
   const [patientToAction, setPatientToAction] = useState<PatientVisit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatus | 'all'>('all');
@@ -522,9 +607,9 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         [PatientStatus.Waiting]: 0,
         [PatientStatus.InProgress]: 0,
         [PatientStatus.PendingExamination]: 0,
+        [PatientStatus.PendingPayment]: 0,
         [PatientStatus.Done]: 0,
-        [PatientStatus.Cancelled]: 0,
-        [PatientStatus.Skipped]: 0,
+        [PatientStatus.Archived]: 0,
     };
     for (const patient of patients) {
         if (counts[patient.status] !== undefined) {
@@ -553,16 +638,16 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
   }, [patients, searchTerm, statusFilter]);
 
 
-  const { waiting, inProgress, pendingExamination, completedOrCancelled } = useMemo(() => {
+  const { waiting, inProgress, pendingExamination, archivedPatients } = useMemo(() => {
     const lists = filteredPatients.reduce((acc, p) => {
       if (p.status === PatientStatus.Waiting) acc.waiting.push(p);
       else if (p.status === PatientStatus.InProgress) acc.inProgress.push(p);
       else if (p.status === PatientStatus.PendingExamination) acc.pendingExamination.push(p);
-      else acc.completedOrCancelled.push(p);
+      else acc.archivedPatients.push(p);
       return acc;
-    }, { waiting: [], inProgress: [], pendingExamination: [], completedOrCancelled: [] } as Record<string, PatientVisit[]>);
+    }, { waiting: [], inProgress: [], pendingExamination: [], archivedPatients: [] } as Record<string, PatientVisit[]>);
     
-    lists.completedOrCancelled.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    lists.archivedPatients.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     return lists;
   }, [filteredPatients]);
   
@@ -571,7 +656,9 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         const detailsToUpdate: Partial<Omit<PatientVisit, 'id'>> = { 
             paymentAmount, 
             paymentNotes, 
-            isPaid: true 
+            isPaid: true,
+            status: PatientStatus.Waiting, // Return to waiting after payment
+            createdAt: Timestamp.now(), // Put them at the end of the queue
         };
         await updatePatientDetails(patientId, detailsToUpdate);
         setPaymentPatient(null);
@@ -593,6 +680,14 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       console.error("Failed to save notes:", error);
     }
   };
+
+  const reconstructNotes = (mainNotes: string, examinationNotes: { timestamp: string; notes: string }[]): string => {
+    let newClinicalNotes = mainNotes;
+    examinationNotes.forEach(note => {
+        newClinicalNotes += `\n\n--- ملاحظات للفحص [${note.timestamp}] ---\n${note.notes}`;
+    });
+    return newClinicalNotes.trim();
+  }
 
   const handleSaveExaminationNotes = async (patientId: string, notes: string) => {
     const toastId = toast.loading('جاري إرسال المراجع للفحص...');
@@ -619,6 +714,49 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     }
   };
 
+  const handleEditExaminationNote = (patient: PatientVisit, index: number, text: string) => {
+    setEditingExamNote({ patient, index, text });
+  };
+
+  const handleConfirmDeleteExaminationNote = async () => {
+      if (!deletingExamNoteInfo) return;
+      const { patient, index: indexToDelete } = deletingExamNoteInfo;
+
+      const { mainNotes, examinationNotes } = parseClinicalNotes(patient.clinicalNotes);
+      const updatedExamNotes = examinationNotes.filter((_, index) => index !== indexToDelete);
+      const newClinicalNotes = reconstructNotes(mainNotes, updatedExamNotes);
+      
+      const toastId = toast.loading('جاري حذف الملاحظة...');
+      try {
+          await updatePatientDetails(patient.id, { clinicalNotes: newClinicalNotes });
+          toast.success('تم حذف الملاحظة.', { id: toastId });
+      } catch (error) {
+          toast.error('فشل حذف الملاحظة.', { id: toastId });
+      } finally {
+          setDeletingExamNoteInfo(null);
+      }
+  };
+
+  const handleSaveEditedExaminationNote = async (patientId: string, noteIndex: number, newText: string) => {
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient) return;
+      
+      const { mainNotes, examinationNotes } = parseClinicalNotes(patient.clinicalNotes);
+      if (noteIndex < 0 || noteIndex >= examinationNotes.length) return;
+
+      examinationNotes[noteIndex].notes = newText;
+      const newClinicalNotes = reconstructNotes(mainNotes, examinationNotes);
+
+      const toastId = toast.loading('جاري حفظ التعديلات...');
+      try {
+          await updatePatientDetails(patientId, { clinicalNotes: newClinicalNotes });
+          toast.success('تم حفظ التعديلات.', { id: toastId });
+          setEditingExamNote(null);
+      } catch (error) {
+          toast.error('فشل حفظ التعديلات.', { id: toastId });
+      }
+  };
+
   const handleMoveToInProgress = (patient: PatientVisit) => {
     if (settings.requirePaymentBeforeInProgress && !patient.isPaid) {
       toast.error('يجب تسجيل دفعة للمراجع أولاً قبل إدخاله للطبيب.');
@@ -629,6 +767,32 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
       return;
     }
     onUpdateStatus(patient.id, PatientStatus.InProgress);
+  };
+
+  const handleReturnToWaiting = async (patientId: string) => {
+    const toastId = toast.loading('جاري إرجاع المراجع للانتظار...');
+    try {
+        await updatePatientDetails(patientId, { 
+            status: PatientStatus.Waiting, 
+            wasExamined: true, 
+            createdAt: Timestamp.now() 
+        });
+        toast.success('تم إرجاع المراجع للانتظار.', { id: toastId });
+    } catch (error) {
+        toast.error('فشل إرجاع المراجع.', { id: toastId });
+        console.error("Failed to return patient to waiting:", error);
+    }
+  };
+  
+  const handleUpdateQuickNotes = async (newNotes: string[]) => {
+    const toastId = toast.loading('جاري تحديث الاختصارات...');
+    try {
+        await updateClinicSettings({ quickExaminationNotes: newNotes });
+        toast.success('تم تحديث الاختصارات بنجاح.', { id: toastId });
+    } catch (e) {
+        toast.error('فشل تحديث الاختصارات.', { id: toastId });
+        console.error("Failed to update quick notes:", e);
+    }
   };
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, patient: PatientVisit) => {
@@ -652,7 +816,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
     handleDragLeaveColumn();
     if (!draggedPatient || draggedPatient.status === targetStatus) return;
 
-    if ([PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(draggedPatient.status)) {
+    if ([PatientStatus.Done, PatientStatus.Archived].includes(draggedPatient.status)) {
         toast.error('لا يمكن إعادة مراجع من الأرشيف.');
         return;
     }
@@ -702,7 +866,6 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         settings={settings}
         onUpdateStatus={onUpdateStatus}
         onMoveToInProgress={handleMoveToInProgress}
-        onCancel={onCancel}
         onDeleteClick={setPatientToAction}
         onCall={onCall}
         onStopCall={onStopCall}
@@ -711,8 +874,11 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         onShowHistory={() => setHistoryPatient(patient)}
         onSetNotes={() => setNotesPatient(patient)}
         onSetExaminationNotes={() => setExaminationNotesPatient(patient)}
+        onEditExaminationNote={handleEditExaminationNote}
+        onDeleteExaminationNote={(patient, index) => setDeletingExamNoteInfo({ patient, index })}
+        onReturnToWaiting={handleReturnToWaiting}
         isBeingCalled={callingPatient?.id === patient.id}
-        isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patient.status)}
+        isDraggable={[Role.Doctor, Role.Secretary].includes(role) && ![PatientStatus.Done, PatientStatus.Archived].includes(patient.status)}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDropReorder={handleReorderDrop}
@@ -747,7 +913,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
           <QueueSection title="الانتظار" count={waiting.length} isDragOver={dragOverColumn === PatientStatus.Waiting} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Waiting)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.Waiting)} color="bg-blue-500">
             {waiting.map((p, i) => renderPatient(p, { index: i }))}
           </QueueSection>
-          <QueueSection title="قيد المعالجة" count={inProgress.length} isDragOver={dragOverColumn === PatientStatus.InProgress} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.InProgress)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.InProgress)} color="bg-red-500">
+          <QueueSection title="عند الطبيب" count={inProgress.length} isDragOver={dragOverColumn === PatientStatus.InProgress} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.InProgress)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.InProgress)} color="bg-red-500">
             {inProgress.map(p => renderPatient(p))}
           </QueueSection>
           <QueueSection title="بانتظار الفحص" count={pendingExamination.length} isDragOver={dragOverColumn === PatientStatus.PendingExamination} onDragOver={(e) => handleDragOverColumn(e, PatientStatus.PendingExamination)} onDragLeave={handleDragLeaveColumn} onDrop={(e) => handleColumnDrop(e, PatientStatus.PendingExamination)} color="bg-purple-500">
@@ -755,15 +921,15 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
           </QueueSection>
           <QueueSection 
             title="الأرشيف" 
-            count={completedOrCancelled.length} 
-            isDragOver={dragOverColumn === PatientStatus.Cancelled} 
-            onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Cancelled)} 
+            count={archivedPatients.length} 
+            isDragOver={dragOverColumn === PatientStatus.Archived} 
+            onDragOver={(e) => handleDragOverColumn(e, PatientStatus.Archived)} 
             onDragLeave={handleDragLeaveColumn} 
-            onDrop={(e) => handleColumnDrop(e, PatientStatus.Cancelled)} 
+            onDrop={(e) => handleColumnDrop(e, PatientStatus.Archived)} 
             color="bg-gray-500"
           >
-            {completedOrCancelled.slice(0, visibleArchivedCount).map(p => renderPatient(p))}
-            {completedOrCancelled.length > visibleArchivedCount && (
+            {archivedPatients.slice(0, visibleArchivedCount).map(p => renderPatient(p))}
+            {archivedPatients.length > visibleArchivedCount && (
                 <button 
                     onClick={() => setVisibleArchivedCount(prev => prev + 10)} 
                     className="w-full mt-2 text-center text-sm font-semibold text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition"
@@ -775,7 +941,7 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
         </div>
       </div>
       
-      {paymentPatient && role === Role.Secretary && (
+      {paymentPatient && (
         <PaymentModal 
             patient={paymentPatient} 
             onClose={() => setPaymentPatient(null)} 
@@ -793,11 +959,24 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
           onSave={handleSaveNotes}
         />
       )}
-      {examinationNotesPatient && role === Role.Doctor && (
+      {examinationNotesPatient && (
         <ExaminationNotesModal
             patient={examinationNotesPatient}
             onClose={() => setExaminationNotesPatient(null)}
             onSave={handleSaveExaminationNotes}
+            quickNotes={settings.quickExaminationNotes || DEFAULT_SETTINGS.quickExaminationNotes}
+            onUpdateQuickNotes={handleUpdateQuickNotes}
+        />
+      )}
+      {editingExamNote && (
+        <ExaminationNotesModal
+            patient={editingExamNote.patient}
+            onClose={() => setEditingExamNote(null)}
+            onSave={handleSaveExaminationNotes}
+            onEdit={handleSaveEditedExaminationNote}
+            noteToEdit={{ index: editingExamNote.index, text: editingExamNote.text }}
+            quickNotes={settings.quickExaminationNotes || DEFAULT_SETTINGS.quickExaminationNotes}
+            onUpdateQuickNotes={handleUpdateQuickNotes}
         />
       )}
       {patientToAction && (
@@ -810,9 +989,21 @@ const PatientQueueList: FC<PatientQueueListProps> = ({
             setPatientToAction(null);
           }}
           onConfirmArchive={() => {
-            onCancel(patientToAction.id);
+            onArchive(patientToAction.id);
             setPatientToAction(null);
           }}
+        />
+      )}
+      {deletingExamNoteInfo && (
+        <ConfirmationDialog
+            isOpen={!!deletingExamNoteInfo}
+            onClose={() => setDeletingExamNoteInfo(null)}
+            onConfirm={handleConfirmDeleteExaminationNote}
+            title="تأكيد حذف الملاحظة"
+            message="هل أنت متأكد من حذف ملاحظة الفحص هذه؟ لا يمكن التراجع عن هذا الإجراء."
+            confirmButtonText="نعم، حذف"
+            confirmButtonColor="bg-red-600 hover:bg-red-700"
+            icon={<TrashIcon className="w-5 h-5" />}
         />
       )}
     </>

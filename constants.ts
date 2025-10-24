@@ -18,4 +18,14 @@ export const DEFAULT_SETTINGS: ClinicSettings = {
   autoDoneTimeout: 30, // minutes
   autoCallNextOnDone: false,
   quickPaymentAmount: 15000,
+  quickExaminationNotes: [
+    'فحص النظر',
+    'فحص الشبكية',
+    'فحص قاع العين',
+    'قياس ضغط العين',
+    'فحص الساحة البصرية',
+    'صورة مقطعية للشبكية (OCT)',
+    'تصوير الأوعية بالفلوريسين',
+    'فحص العدسات اللاصقة'
+  ],
 };

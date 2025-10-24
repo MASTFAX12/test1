@@ -10,7 +10,7 @@ interface AdminSidebarProps {
   activeView: string;
   onNavigate: (view: 'queue' | 'stats' | 'chat' | 'archive') => void;
   clinicName: string;
-  hasUnreadMessages: boolean;
+  unreadChatCount: number;
 }
 
 const NavButton: React.FC<{
@@ -18,8 +18,8 @@ const NavButton: React.FC<{
   icon: React.ReactNode;
   isActive: boolean;
   onClick: () => void;
-  hasNotification?: boolean;
-}> = ({ label, icon, isActive, onClick, hasNotification }) => {
+  notificationCount?: number;
+}> = ({ label, icon, isActive, onClick, notificationCount }) => {
   return (
     <button
       onClick={onClick}
@@ -31,14 +31,16 @@ const NavButton: React.FC<{
     >
       {icon}
       <span>{label}</span>
-      {hasNotification && (
-        <span className="absolute top-2 left-2 block h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse ring-2 ring-gray-50"></span>
+      {notificationCount && notificationCount > 0 && (
+        <span className="absolute top-1.5 left-1.5 flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold ring-2 ring-gray-50">
+          {notificationCount > 9 ? '9+' : notificationCount}
+        </span>
       )}
     </button>
   );
 };
 
-const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeView, onNavigate, clinicName, hasUnreadMessages }) => {
+const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeView, onNavigate, clinicName, unreadChatCount }) => {
   return (
     <aside className="w-64 flex-shrink-0 bg-gray-50 p-4 border-l border-gray-200 flex flex-col">
       <header className="flex items-center gap-3 p-2 mb-6">
@@ -74,7 +76,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeView, onNavigate, cli
           icon={<ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />}
           isActive={activeView === 'chat'}
           onClick={() => onNavigate('chat')}
-          hasNotification={hasUnreadMessages}
+          notificationCount={unreadChatCount}
         />
       </nav>
     </aside>

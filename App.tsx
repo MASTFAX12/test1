@@ -10,7 +10,7 @@ import { Role, PatientStatus } from './types.ts';
 import type { PatientVisit } from './types.ts';
 import { 
   updatePatientStatus, 
-  cancelPatient, 
+  archivePatientVisit, 
   deletePatientVisit,
   reorderPatientQueue,
   updatePatientDetails,
@@ -44,7 +44,7 @@ function App() {
   const [callingPatient, setCallingPatient] = useState<PatientVisit | null>(null);
   const [callTimeoutId, setCallTimeoutId] = useState<number | null>(null);
   const [notifiedPatient, setNotifiedPatient] = useState<PatientVisit | null>(null);
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   const prevPatients = usePrevious(patients);
   const prevMessages = usePrevious(messages);
@@ -77,18 +77,33 @@ function App() {
     }
   }, [patients, prevPatients, role, settings.callSoundEnabled]);
 
+  // Refactored chat notification logic
   useEffect(() => {
-    if (role === Role.Public) return;
+    if (role === Role.Public || loggedInUserRole === Role.None) {
+        setUnreadChatCount(0); // Reset when not logged in to an admin role
+        return;
+    }
 
-    const isNewMessage = prevMessages && messages.length > prevMessages.length;
-    if (isNewMessage) {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage && lastMessage.sender !== loggedInUserRole) {
+    if (!messages) return;
+
+    // 1. Play sound only when a new message actually arrives from someone else
+    if (prevMessages && messages.length > prevMessages.length) {
+        const latestMessage = messages[messages.length - 1];
+        if (latestMessage && latestMessage.sender !== loggedInUserRole) {
             playChatMessageSound();
-            setHasUnreadMessages(true);
         }
     }
+
+    // 2. Calculate unread count for the badge based on the last read timestamp
+    const lastReadTimestamp = Number(localStorage.getItem('chatLastReadTimestamp') || '0');
+    const newUnreadCount = messages.filter(
+        msg => msg.createdAt.toMillis() > lastReadTimestamp && msg.sender !== loggedInUserRole
+    ).length;
+
+    setUnreadChatCount(newUnreadCount);
+
   }, [messages, prevMessages, role, loggedInUserRole]);
+
 
   const handleLoginSuccess = (loggedInRole: Role) => {
     setLoggedInUserRole(loggedInRole);
@@ -105,7 +120,7 @@ function App() {
     try {
       const patientToUpdate = patients.find(p => p.id === id);
       const isReturningFromArchive = patientToUpdate && 
-        [PatientStatus.Done, PatientStatus.Cancelled, PatientStatus.Skipped].includes(patientToUpdate.status);
+        [PatientStatus.Done, PatientStatus.Archived].includes(patientToUpdate.status);
 
       if (status === PatientStatus.Waiting && isReturningFromArchive) {
         await updatePatientDetails(id, { status: PatientStatus.Waiting, createdAt: Timestamp.now() });
@@ -172,10 +187,10 @@ function App() {
     setCallTimeoutId(null);
   }, [callTimeoutId]);
 
-  const handleCancel = async (id: string) => {
+  const handleArchive = async (id: string) => {
     const toastId = toast.loading('جاري الأرشفة...');
     try {
-        await cancelPatient(id);
+        await archivePatientVisit(id);
         toast.success('تمت أرشفة المراجع.', { id: toastId });
     } catch (error) {
         toast.error('فشلت الأرشفة.', { id: toastId });
@@ -202,6 +217,20 @@ function App() {
         console.error("Failed to reorder:", error);
     }
   };
+
+  const handleViewChat = () => {
+    setUnreadChatCount(0);
+    // Use the timestamp of the latest message as the "read" marker to avoid clock skew issues.
+    if (messages && messages.length > 0) {
+        // Find the timestamp of the very last message in the chat
+        const latestMessageTimestamp = messages[messages.length - 1].createdAt.toMillis();
+        localStorage.setItem('chatLastReadTimestamp', String(latestMessageTimestamp));
+    } else {
+        // If chat is empty, just use the current time
+        localStorage.setItem('chatLastReadTimestamp', String(Date.now()));
+    }
+  };
+
 
   const inProgressPatient = useMemo(() => patients.find(p => p.status === PatientStatus.InProgress), [patients]);
   const waitingPatients = useMemo(() => patients.filter(p => p.status === PatientStatus.Waiting), [patients]);
@@ -231,7 +260,7 @@ function App() {
           </header>
 
           <div className="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
-            <div className="w-full md:w-2/3 flex flex-col">
+            <div className="w-full md:w-1/2 flex flex-col">
               <CurrentPatientCard 
                 patient={inProgressPatient} 
                 callingPatient={callingPatient}
@@ -241,14 +270,14 @@ function App() {
                 theme={currentTheme}
               />
             </div>
-            <div className={`${currentTheme.cardBackground} p-4 rounded-2xl shadow-lg border ${currentTheme.cardBorder} flex flex-col w-full md:w-1/3`}>
+            <div className={`${currentTheme.cardBackground} p-4 rounded-2xl shadow-lg border ${currentTheme.cardBorder} flex flex-col w-full md:w-1/2`}>
               <h2 className={`text-2xl lg:text-3xl xl:text-4xl font-bold text-center ${currentTheme.primaryText} mb-4 flex-shrink-0`}>قائمة الانتظار ({waitingPatients.length})</h2>
               <ul className="space-y-3 overflow-y-auto h-full pr-2">
                 {displayedWaiting.length > 0 ? (
                   displayedWaiting.map((p, index) => (
                     <li key={p.id} className={`${currentTheme.listItemDefaultBackground} p-3 rounded-lg text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-bold ${currentTheme.primaryText} shadow-sm flex items-center gap-4 animate-fade-in`}>
                       <span className="bg-[var(--theme-color)] text-white rounded-full h-9 w-9 lg:h-12 lg:w-12 lg:text-xl xl:h-14 xl:w-14 xl:text-2xl flex items-center justify-center font-bold flex-shrink-0 shadow-md">{index + 1}</span>
-                      <span className="truncate">{p.name}</span>
+                      <span className="min-w-0 break-words">{p.name}</span>
                     </li>
                   ))
                 ) : (
@@ -304,13 +333,13 @@ function App() {
         onOpenSettingsModal={() => setSettingsModalOpen(true)}
         onOpenAddPatientModal={() => setAddPatientModalOpen(true)}
         onUpdateStatus={handleUpdateStatus}
-        onCancel={handleCancel}
+        onArchive={handleArchive}
         onDeletePatient={handleDeletePatient}
         onCall={handleCallPatient}
         onStopCall={handleStopCall}
         onReorder={handleReorder}
-        hasUnreadMessages={hasUnreadMessages}
-        onViewChat={() => setHasUnreadMessages(false)}
+        unreadChatCount={unreadChatCount}
+        onViewChat={handleViewChat}
       />
       
       <Toaster toastOptions={{

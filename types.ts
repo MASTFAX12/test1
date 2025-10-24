@@ -80,9 +80,9 @@ export enum PatientStatus {
   Waiting = 'waiting',
   InProgress = 'inprogress',
   PendingExamination = 'pending_examination',
+  PendingPayment = 'pending_payment',
   Done = 'done',
-  Skipped = 'skipped',
-  Cancelled = 'cancelled',
+  Archived = 'archived',
 }
 
 // Represents a permanent patient record in the 'patients' collection
@@ -110,6 +110,7 @@ export interface PatientVisit {
   status: PatientStatus;
   createdAt: Timestamp; // Used for ordering in the queue
   visitDate: Timestamp;
+  wasExamined?: boolean;
 }
 
 export enum Role {
@@ -142,6 +143,7 @@ export interface ClinicSettings {
   autoDoneTimeout: number; // in minutes
   autoCallNextOnDone: boolean;
   quickPaymentAmount: number;
+  quickExaminationNotes: string[];
 }
 
 export interface ChatMessage {
